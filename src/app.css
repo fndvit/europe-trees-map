@@ -1,0 +1,51 @@
+:root {
+  --font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  --color-bg-intro: #0a1208;
+  --color-white: #ffffff;
+  --color-glass-heavy: rgba(255, 255, 255, 0.75);
+  --color-glass-light: rgba(255, 255, 255, 0.35);
+  --color-text-dark: #333333;
+  --color-text-medium: #505050;
+  --color-text-light: #888888;
+
+  --color-dense: #005f00;
+  --color-sparse: #ffec81;
+  --color-broadleaved: #c7b447;
+  --color-conifer: #07523f;
+
+  --shadow-card: 0px 2px 32px 0px rgba(0, 0, 0, 0.05);
+  --shadow-search: 0px 1px 16px 0px rgba(0, 0, 0, 0.2);
+  --shadow-legend: 0px -1px 16px 0px rgba(0, 0, 0, 0.1);
+  --shadow-tooltip: 0px 1px 8px 0px rgba(0, 0, 0, 0.15);
+
+  --blur-heavy: blur(24px);
+  --blur-light: blur(16px);
+  --blur-medium: blur(8px);
+
+  --radius-card: 12px;
+  --radius-pill: 999px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Do NOT set height:100% on html/body — it prevents the page from scrolling */
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--color-bg-intro);
+  color: var(--color-text-dark);
+  /* overflow-x:hidden only on body, not on html — avoids Safari scroll lockout */
+  overflow-x: clip;
+}
