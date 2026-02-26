@@ -330,6 +330,20 @@
     <div style="height: 40vh"></div>
   </div>
 
+  <footer class="site-footer" class:visible={explorationActive}>
+    <a href="https://www.fundaciovit.org/" target="_blank" rel="noopener noreferrer" aria-label="Fundació ViT">
+      <img src="/assets/vit-logo-bw.svg" alt="ViT" width="72" />
+    </a>
+    <a href="https://www.instagram.com/fndvit/" target="_blank" rel="noopener noreferrer" aria-label="Follow us on Instagram" class="social-link">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+        <circle cx="12" cy="12" r="4"/>
+        <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none"/>
+      </svg>
+      <span>@fndvit</span>
+    </a>
+  </footer>
+
 </div>
 
 <style>
@@ -459,7 +473,7 @@
   .map-controls {
     position: absolute;
     right: 20px;
-    bottom: 180px;
+    bottom: 224px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -504,8 +518,56 @@
 
   @media (max-width: 600px) {
     .map-controls {
-      bottom: 200px;
+      bottom: 244px;
       right: 16px;
     }
+  }
+
+  .site-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: var(--color-bg-intro, #0a1208);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 12px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(100%);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .site-footer.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  .site-footer a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.2s ease, opacity 0.2s ease;
+  }
+
+  .site-footer img {
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+  }
+
+  .site-footer a:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .site-footer a:hover img {
+    opacity: 0.9;
   }
 </style>

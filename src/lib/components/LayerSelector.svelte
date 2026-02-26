@@ -72,7 +72,7 @@
 <style>
   .selector-wrap {
     position: absolute;
-    bottom: 20px;
+    bottom: 64px;
     left: 20px;
     right: 20px;
     z-index: 20;
