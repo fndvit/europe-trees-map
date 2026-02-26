@@ -1,5 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,300;0,6..96,400;1,6..96,300;1,6..96,400&display=swap');
+
 :root {
   --font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  /* Bodoni 72 Oldstyle on macOS/iOS; Bodoni Moda (Google Fonts) as web fallback */
+  --font-title: 'Bodoni 72 Oldstyle', 'Bodoni 72', 'Bodoni Moda', Georgia, serif;
 
   --color-bg-intro: #0a1208;
   --color-white: #ffffff;

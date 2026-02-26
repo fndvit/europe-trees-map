@@ -107,8 +107,8 @@
     left: 48px;
     top: 50%;
     transform: translateY(-52%);
-    font-family: var(--font);
-    font-weight: 200;
+    font-family: var(--font-title);
+    font-weight: 400;
     font-size: clamp(52px, 7.5vw, 108px);
     line-height: 0.93;
     color: var(--color-white);
@@ -191,7 +191,7 @@
       left: 22px;
       top: 149px;
       transform: none;
-      font-size: clamp(72px, 20vw, 90px);
+      font-size: clamp(56px, 18vw, 90px);
     }
 
     .vit-logo { width: 90px; }
