@@ -3,27 +3,23 @@
     text?: string;
     visible?: boolean;
     icon?: string;
-    exploration?: boolean;
     progress?: number; // 0–1 within current scroll step
   }
 
-  let { text = '', visible = true, icon = '', exploration = false, progress = 0 }: Props = $props();
+  let { text = '', visible = true, icon = '', progress = 0 }: Props = $props();
 
   // Card is centered vertically (top:50% + translateY(-50%)).
   // Scroll animation adds ±100vh so it enters from off-screen below and exits off-screen above.
   // -50%  → centers the card on its own height
   // ±100vh → full-screen travel driven by scroll progress
   let yOffset = $derived(
-    exploration
-      ? 'translateY(0)'
-      : `translateY(calc(-50% + ${(1 - progress * 2).toFixed(4)} * 100vh))`
+    `translateY(calc(-50% + ${(1 - progress * 2).toFixed(4)} * 100vh))`
   );
 </script>
 
 <div
   class="info-card"
   class:visible
-  class:exploration
   style="transform: {yOffset}"
 >
   {#if icon}
@@ -56,14 +52,6 @@
     pointer-events: auto;
   }
 
-  /* Exploration mode: card sits at the bottom, no scroll animation */
-  .info-card.exploration {
-    top: auto;
-    bottom: 160px;
-    padding: 24px 32px;
-    max-width: 360px;
-  }
-
   .card-icon {
     width: 100%;
     max-width: 320px;
@@ -79,10 +67,6 @@
     color: var(--color-text-dark);
   }
 
-  .exploration .card-text {
-    font-size: 18px;
-  }
-
   /* Mobile */
   @media (max-width: 600px) {
     .info-card {
@@ -90,10 +74,6 @@
       right: 16px;
       max-width: none;
       padding: 28px 24px;
-    }
-
-    .info-card.exploration {
-      bottom: 180px;
     }
 
     .card-text {

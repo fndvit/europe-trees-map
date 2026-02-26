@@ -10,14 +10,16 @@
     activeLayer?: Layer;
     onload?: () => void;
     onmapclick?: (data: { lng: number; lat: number }) => void;
+    scrollZoomEnabled?: boolean;
   }
 
-  let { step = 0, activeLayer = 'density', onload, onmapclick }: Props = $props();
+  let { step = 0, activeLayer = 'density', onload, onmapclick, scrollZoomEnabled = false }: Props = $props();
 
   let mapContainer: HTMLDivElement;
   let map: any;
   let isLoaded = $state(false);
   let cleanupFlyTo: (() => void) | undefined;
+  let cleanupZoom: (() => void) | undefined;
 
   // Exact map positions from the Observable notebook @694
   const MAP_STEPS = [
@@ -141,6 +143,12 @@
     applyLayer(activeLayer);
   });
 
+  // Enable/disable scroll zoom based on exploration mode
+  $effect(() => {
+    if (!isLoaded || !map) return;
+    scrollZoomEnabled ? map.scrollZoom.enable() : map.scrollZoom.disable();
+  });
+
   onMount(() => {
     if (!browser) return;
 
@@ -194,6 +202,15 @@
         isLoaded = true;
         applyLayer(activeLayer);
         onload?.();
+
+        const handleZoomIn  = () => map?.zoomIn({ duration: 300 });
+        const handleZoomOut = () => map?.zoomOut({ duration: 300 });
+        document.addEventListener('map:zoomin',  handleZoomIn);
+        document.addEventListener('map:zoomout', handleZoomOut);
+        cleanupZoom = () => {
+          document.removeEventListener('map:zoomin',  handleZoomIn);
+          document.removeEventListener('map:zoomout', handleZoomOut);
+        };
       });
 
       map.on('click', (e: any) => {
@@ -211,6 +228,7 @@
 
   onDestroy(() => {
     cleanupFlyTo?.();
+    cleanupZoom?.();
     map?.remove();
   });
 </script>

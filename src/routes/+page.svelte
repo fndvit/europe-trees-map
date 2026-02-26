@@ -91,15 +91,16 @@
   ];
 
   // ─── State ───────────────────────────────────────────────────────────────────
-  let mapLoaded      = $state(false);
-  let introVisible   = $state(true);
-  let currentStep    = $state(-1);
-  let activeLayer    = $state<Layer>('density');
-  let mapStep        = $state(0);
-  let tooltipData    = $state<TooltipData | null>(null);
-  let lastClickX     = $state(0);
-  let lastClickY     = $state(0);
-  let scrollProgress = $state(0); // 0–1 within the current step
+  let mapLoaded        = $state(false);
+  let introVisible     = $state(true);
+  let currentStep      = $state(-1);
+  let activeLayer      = $state<Layer>('density');
+  let mapStep          = $state(0);
+  let tooltipData      = $state<TooltipData | null>(null);
+  let lastClickX       = $state(0);
+  let lastClickY       = $state(0);
+  let scrollProgress   = $state(0); // 0–1 within the current step
+  let explorationActive = $state(false);
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
   let isExploration    = $derived(currentStep === STEPS.length - 1);
@@ -122,6 +123,15 @@
   function handleLayerChange(layer: Layer) {
     activeLayer = layer;
   }
+
+  function goToTop() {
+    explorationActive = false;
+    document.body.style.overflow = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function zoomIn()  { document.dispatchEvent(new CustomEvent('map:zoomin')); }
+  function zoomOut() { document.dispatchEvent(new CustomEvent('map:zoomout')); }
 
   // Convert WGS84 lng/lat → EPSG:3857 (needed for EEA ImageServer identify)
   function to3857(lng: number, lat: number): [number, number] {
@@ -193,6 +203,18 @@
         ? Math.max(0, Math.min(1, (relativeScroll - next * STEP_HEIGHT) / STEP_HEIGHT))
         : 0;
 
+      const stepIsExploration = next >= 0 && STEPS[next].isExploration === true;
+
+      if (stepIsExploration && scrollProgress > 0.75 && !explorationActive) {
+        explorationActive = true;
+        document.body.style.overflow = 'hidden';
+      }
+
+      if (!stepIsExploration && explorationActive) {
+        explorationActive = false;
+        document.body.style.overflow = '';
+      }
+
       if (next !== currentStep) {
         currentStep = next;
         if (next >= 0) {
@@ -236,6 +258,7 @@
         activeLayer={activeLayer}
         onload={handleMapLoad}
         onmapclick={handleMapClick}
+        scrollZoomEnabled={explorationActive}
       />
     </div>
 
@@ -253,18 +276,17 @@
     <Navbar visible={showUI} />
 
     <SearchBar
-      visible={isExploration && showUI}
+      visible={explorationActive && showUI}
       onflyto={handleFlyTo}
-      dark={isExploration}
-      exploration={isExploration}
+      dark={explorationActive}
+      exploration={explorationActive}
     />
 
     {#if currentStepData}
       <InfoCard
         text={currentStepData.text}
         icon="/assets/trees-icon.svg"
-        visible={showUI}
-        exploration={isExploration}
+        visible={showUI && !explorationActive}
         progress={scrollProgress}
       />
     {/if}
@@ -277,15 +299,22 @@
 
     <!-- Exploration bar: full width, all 5 layers, interactive -->
     <LayerSelector
-      visible={isExploration && showUI}
+      visible={explorationActive && showUI}
       activeLayer={activeLayer}
       onchange={handleLayerChange}
     />
 
+    <!-- Map controls: zoom in/out + go to top (visible in exploration) -->
+    <div class="map-controls" class:visible={explorationActive && showUI} aria-label="Map controls">
+      <button class="map-btn" onclick={zoomIn} title="Zoom in" aria-label="Zoom in">+</button>
+      <button class="map-btn" onclick={zoomOut} title="Zoom out" aria-label="Zoom out">−</button>
+      <button class="map-btn map-btn-top" onclick={goToTop} title="Back to story" aria-label="Back to story">↑</button>
+    </div>
+
     <Tooltip data={tooltipData} onclose={() => (tooltipData = null)} />
 
     <!-- Step progress dots -->
-    <div class="step-dots" class:visible={showUI} aria-hidden="true">
+    <div class="step-dots" class:visible={showUI && !explorationActive} aria-hidden="true">
       {#each STEPS as _step, i}
         <div class="dot" class:active={i === currentStep}></div>
       {/each}
@@ -423,6 +452,60 @@
     .split-divider {
       width: auto;
       height: 2px;
+    }
+  }
+
+  /* Map controls (zoom + go-to-top) — bottom right, above LayerSelector */
+  .map-controls {
+    position: absolute;
+    right: 20px;
+    bottom: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+
+  .map-controls.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .map-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-glass-heavy);
+    backdrop-filter: var(--blur-heavy);
+    -webkit-backdrop-filter: var(--blur-heavy);
+    box-shadow: var(--shadow-card);
+    color: var(--color-text-dark);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+  }
+
+  .map-btn:hover {
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  .map-btn-top {
+    margin-top: 4px;
+    font-size: 16px;
+  }
+
+  @media (max-width: 600px) {
+    .map-controls {
+      bottom: 200px;
+      right: 16px;
     }
   }
 </style>
