@@ -187,6 +187,7 @@
             type: 'raster',
             tiles: [tileUrl],
             tileSize: 256,
+            bounds: [-25, 34, 45, 72],
             attribution: '© Copernicus Land Monitoring Service / GeoVille 2021'
           });
           map.addLayer({
@@ -197,6 +198,12 @@
             paint: { 'raster-opacity': 0.9 }
           }, 'water');  // inserts under water/coastlines
         }
+
+        // Suppress expected WMS tile errors (out-of-bounds, server hiccups)
+        map.on('error', (e) => {
+          if (e.error?.status === 503 || e.error?.status === 404) return;
+          console.warn('Map error:', e.error);
+        });
 
         // Set isLoaded BEFORE applyLayer so the guard inside it passes
         isLoaded = true;
