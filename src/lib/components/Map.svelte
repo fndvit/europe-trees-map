@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
+  import { PUBLIC_MAPBOX_TOKEN } from '$env/static/public';
 
   type Layer = 'density' | 'type-density' | 'broadleaved' | 'conifers' | 'forest-type';
 
@@ -38,8 +39,8 @@
   //   • Apply the notebook colour palette directly at the server
   // Confirmed: CORS access-control-allow-origin: * ✓  SLD_BODY returns image/png ✓
   const GV = 'https://geoserver.vlcc.geoville.com/geoserver/ows';
-  const TILE_BASE = `service=WMS&version=1.1.1&request=GetMap&format=image/png` +
-    `&transparent=true&width=256&height=256&srs=EPSG:3857&bbox={bbox-epsg-3857}`;
+  const TILE_BASE = `service=WMS&version=1.3.0&request=GetMap&format=image/png` +
+    `&transparent=true&width=256&height=256&crs=EPSG:3857&bbox={bbox-epsg-3857}`;
 
   function wmsUrl(layerName: string, sld: string): string {
     return `${GV}?${TILE_BASE}&layers=${layerName}&SLD_BODY=${encodeURIComponent(sld)}`;
@@ -143,17 +144,13 @@
   onMount(() => {
     if (!browser) return;
 
-    Promise.all([
-      import('maplibre-gl'),
-      import('pmtiles')
-    ]).then(([{ default: maplibregl }, { Protocol }]) => {
+    import('mapbox-gl').then(({ default: mapboxgl }) => {
+      (mapboxgl as any).accessToken = PUBLIC_MAPBOX_TOKEN;
 
-      const pmtilesProtocol = new Protocol();
-      maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile.bind(pmtilesProtocol));
-
-      map = new maplibregl.Map({
+      map = new (mapboxgl as any).Map({
         container: mapContainer,
-        style: 'https://tiles.openfreemap.org/styles/liberty',
+        style: 'mapbox://styles/xocasgv/cmcc7qho5040j01sddn2j7yhm',
+        projection: { name: 'albers', center: [10, 52], parallels: [40, 65] },
         center: [10, 52],
         zoom: 3.25,
         minZoom: 3,
@@ -161,7 +158,7 @@
         pitch: 0,
         attributionControl: false,
         logoPosition: 'bottom-left',
-        scrollZoom: false
+        scrollZoom: false,
         // cooperativeGestures omitted: it calls preventDefault() on wheel events,
         // which blocks the page scroll that drives the scrollytelling story.
       });
@@ -169,12 +166,13 @@
       map.dragRotate.disable();
       map.touchZoomRotate.disableRotation();
 
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+      map.addControl(new (mapboxgl as any).AttributionControl({ compact: true }), 'bottom-left');
       map.getCanvas().style.cursor = 'crosshair';
       map.on('mousemove', () => { map.getCanvas().style.cursor = 'crosshair'; });
 
       map.on('load', () => {
-        // Add all forest sources + layers (initially hidden)
+        // Add all forest sources + layers (initially hidden), inserted before 'water'
+        // so coastlines and water bodies render on top of forest tiles
         for (const [id, tileUrl] of Object.entries(FOREST_SOURCES)) {
           map.addSource(`cop-${id}`, {
             type: 'raster',
@@ -188,7 +186,7 @@
             source: `cop-${id}`,
             layout: { visibility: 'none' },
             paint: { 'raster-opacity': 0.9 }
-          });
+          }, 'water');  // inserts under water/coastlines
         }
 
         // Set isLoaded BEFORE applyLayer so the guard inside it passes
@@ -226,12 +224,12 @@
     inset: 0;
   }
 
-  :global(.maplibregl-ctrl-bottom-left) {
+  :global(.mapboxgl-ctrl-bottom-left) {
     z-index: 5;
     pointer-events: auto;
   }
 
-  :global(.maplibregl-ctrl-attrib) {
+  :global(.mapboxgl-ctrl-attrib) {
     font-family: var(--font);
     font-size: 10px;
     background: rgba(255,255,255,0.5) !important;
@@ -239,7 +237,7 @@
     border-radius: 4px !important;
   }
 
-  :global(.maplibregl-canvas) {
+  :global(.mapboxgl-canvas) {
     outline: none;
   }
 </style>
