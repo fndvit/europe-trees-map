@@ -9,8 +9,10 @@
 
   interface TooltipData {
     name: string;
-    density: number;    // 0–100 from Copernicus TCD; -1 = loading
-    leafType: number;   // 1=broadleaved, 2=coniferous, 0=unknown
+    density: number;     // 0–100 from EEA TCD identify
+    leafType: number;    // 1=broadleaved, 2=coniferous, 0=unknown
+    conifers: number;    // ha from DLT computeHistograms (-1 = unavailable)
+    broadleaves: number; // ha from DLT computeHistograms (-1 = unavailable)
     loading?: boolean;
     x: number;
     y: number;
@@ -23,8 +25,8 @@
 
   let { data = null, onclose }: Props = $props();
 
-  const W = 240;
-  const H = 160;
+  const W = 280;
+  const H = 260; // approximate height for upward offset
 
   let cx = $derived(
     data
@@ -33,58 +35,73 @@
   );
   let cy = $derived(data ? Math.max(data.y - H - 16, 60) : 0);
 
-  function densityLabel(d: number): string {
-    if (d >= 70) return 'Dense forest';
-    if (d >= 30) return 'Moderate forest';
-    if (d >= 10) return 'Sparse trees';
-    return 'No significant tree cover';
-  }
-
   function densityCategory(d: number): string {
-    if (d === 0) return 'no';
-    if (d <= 10) return 'very sparse';
-    if (d <= 35) return 'sparse';
-    if (d <= 70) return 'moderate';
-    if (d <= 80) return 'dense';
+    if (d === 0)   return 'no';
+    if (d <= 10)   return 'very sparse';
+    if (d <= 35)   return 'sparse';
+    if (d <= 70)   return 'moderate';
+    if (d <= 80)   return 'dense';
     return 'very dense';
   }
 
   function leafTypeLabel(leafType: number, density: number): string {
-    if (density === 0) return 'No tree cover.';
+    if (density === 0) return 'No tree cover detected in this area.';
     if (leafType === 1) return `A ${densityCategory(density)} canopy, mostly broadleaved trees.`;
     if (leafType === 2) return `A ${densityCategory(density)} canopy, mostly coniferous trees.`;
     return `A ${densityCategory(density)} canopy.`;
   }
 
-  let fillPct = $derived(data ? Math.max(1, data.density) : 0);
-
-  // ── Tree icon drawing ──────────────────────────────────────────────────────
-  // Pick a seeded-random icon from a pool based on tree type
   function pickIcon(type: 'broadleaved' | 'coniferous', seed: number): string {
     const pool = type === 'coniferous' ? [con1, con2, con3] : [bro1, bro2, bro3];
     return pool[seed % 3];
   }
 
-  // Build a list of tree types to draw based on density and leafType
-  function buildTreeRow(density: number, leafType: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
+  // Build a compact row of 1–3 tree icons based on density and leaf type
+  function buildTreeIcons(density: number, leafType: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
     if (density === 0) return [];
-    const count = Math.max(1, Math.min(Math.round(density / 10), 10));
+    const count = Math.min(3, Math.max(1, Math.round(density / 35)));
     let types: Array<'broadleaved' | 'coniferous'>;
     if (leafType === 2) {
       types = Array(count).fill('coniferous');
     } else if (leafType === 1) {
       types = Array(count).fill('broadleaved');
     } else {
-      // unknown type: mix
-      const half = Math.round(count / 2);
-      types = [...Array(half).fill('coniferous'), ...Array(count - half).fill('broadleaved')];
+      types = count === 1 ? ['broadleaved'] : ['coniferous', 'broadleaved'];
     }
     return types.map((type, i) => ({ type, seed: i }));
   }
 
-  let treeRow = $derived(
-    data && !data.loading ? buildTreeRow(data.density, data.leafType) : []
+  let treeIcons = $derived(
+    data && !data.loading ? buildTreeIcons(data.density, data.leafType) : []
   );
+
+  // ── Bar position markers (0–100 = CSS left%) ──────────────────────────────
+  let tcdPos = $derived(data ? Math.max(0, Math.min(100, data.density)) : 0);
+
+  let totalForest = $derived(
+    data && data.conifers >= 0 && data.broadleaves >= 0
+      ? data.conifers + data.broadleaves
+      : 0
+  );
+
+  let conifersPos = $derived(
+    totalForest > 0 && data && data.conifers >= 0
+      ? Math.round((data.conifers / totalForest) * 100)
+      : 0
+  );
+
+  let broadleavesPos = $derived(
+    totalForest > 0 && data && data.broadleaves >= 0
+      ? Math.round((data.broadleaves / totalForest) * 100)
+      : 0
+  );
+
+  function formatHa(val: number): string {
+    if (val < 0) return '—';
+    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M ha`;
+    if (val >= 1_000)     return `${Math.round(val / 1_000)}k ha`;
+    return `${val} ha`;
+  }
 </script>
 
 {#if data}
@@ -99,38 +116,65 @@
       </button>
 
       <h3 class="place-name">{data.name}</h3>
+      <hr class="divider" />
 
       {#if data.loading}
         <div class="skeletons">
-          <div class="skeleton tree-skel"></div>
-          <div class="skeleton wide"></div>
-          <div class="skeleton narrow"></div>
+          <div class="skeleton desc-skel"></div>
+          <div class="skeleton bar-skel"></div>
+          <div class="skeleton bar-lbl"></div>
+          <div class="skeleton bar-skel"></div>
+          <div class="skeleton bar-lbl"></div>
+          <div class="skeleton bar-skel"></div>
         </div>
       {:else}
-        <!-- Tree icon row -->
-        {#if treeRow.length > 0}
-          <div class="tree-row" aria-hidden="true">
-            {#each treeRow as tree}
-              <span class="tree-icon">
-                {@html pickIcon(tree.type, tree.seed)}
-              </span>
-            {/each}
-          </div>
-        {/if}
+        <!-- Description + tree icons row -->
+        <div class="desc-row">
+          <p class="nl-sentence">{leafTypeLabel(data.leafType, data.density)}</p>
+          {#if treeIcons.length > 0}
+            <div class="tree-icons" aria-hidden="true">
+              {#each treeIcons as tree}
+                <span class="tree-icon">
+                  {@html pickIcon(tree.type, tree.seed)}
+                </span>
+              {/each}
+            </div>
+          {/if}
+        </div>
 
-        <!-- Natural language sentence -->
-        <p class="nl-sentence">{leafTypeLabel(data.leafType, data.density)}</p>
+        <hr class="divider" />
 
+        <!-- Tree cover density bar -->
         <div class="stat-row">
           <span class="stat-lbl">Tree cover density</span>
           <span class="stat-val">{data.density}%</span>
         </div>
-
         <div class="bar-track">
-          <div class="bar-fill" style="width:{fillPct}%"></div>
+          <div class="bar-gradient tcd-gradient"></div>
+          <div class="bar-marker" style="left:{tcdPos}%"></div>
         </div>
 
-        <p class="source">Copernicus HRL TCD/DLT 2018 · © EEA</p>
+        <!-- Conifers bar -->
+        <div class="stat-row">
+          <span class="stat-lbl">Conifers</span>
+          <span class="stat-val">{formatHa(data.conifers)}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-gradient con-gradient"></div>
+          <div class="bar-marker" style="left:{conifersPos}%"></div>
+        </div>
+
+        <!-- Broadleaves bar -->
+        <div class="stat-row">
+          <span class="stat-lbl">Broadleaves</span>
+          <span class="stat-val">{formatHa(data.broadleaves)}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-gradient bro-gradient"></div>
+          <div class="bar-marker" style="left:{broadleavesPos}%"></div>
+        </div>
+
+        <p class="source">Copernicus HRL 2018 · © EEA</p>
       {/if}
     </div>
     <div class="arrow"></div>
@@ -160,7 +204,7 @@
     -webkit-backdrop-filter: var(--blur-light);
     border-radius: 8px;
     padding: 14px 14px 12px;
-    width: 240px;
+    width: 280px;
     box-shadow: var(--shadow-tooltip);
     position: relative;
   }
@@ -191,102 +235,140 @@
     line-height: 1.2;
   }
 
+  .divider {
+    border: none;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    margin: 0 0 10px;
+  }
+
   /* ── Loading skeletons ─────────────── */
   .skeletons { display: flex; flex-direction: column; gap: 8px; }
 
   .skeleton {
-    height: 10px;
     border-radius: 5px;
     background: linear-gradient(90deg, rgba(0,0,0,0.06) 25%, rgba(0,0,0,0.12) 50%, rgba(0,0,0,0.06) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.2s ease-in-out infinite;
   }
-  .skeleton.tree-skel { height: 32px; width: 80px; }
-  .skeleton.wide    { width: 100%; }
-  .skeleton.narrow  { width: 60%; }
+  .skeleton.desc-skel { height: 28px; width: 100%; }
+  .skeleton.bar-skel  { height: 8px; width: 100%; }
+  .skeleton.bar-lbl   { height: 10px; width: 70%; }
 
   @keyframes shimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
 
-  /* ── Tree icon row ─────────────────── */
-  .tree-row {
+  /* ── Description + icons row ────────── */
+  .desc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .nl-sentence {
+    flex: 1;
+    font-family: var(--font);
+    font-size: 12px;
+    font-style: italic;
+    color: var(--color-text-medium);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .tree-icons {
+    flex-shrink: 0;
+    width: 64px;
+    height: 26px;
     display: flex;
     align-items: flex-end;
     gap: 2px;
-    margin-bottom: 8px;
-    height: 32px;
   }
 
   .tree-icon {
     display: flex;
     align-items: flex-end;
     flex: 1;
-    max-width: 24px;
+    max-width: 22px;
   }
 
-  /* Scale SVG to fill its container, and invert colors for dark background */
   .tree-icon :global(svg) {
     width: 100%;
-    height: 32px;
+    height: 26px;
     filter: invert(1);
     overflow: visible;
   }
 
-  /* ── NL sentence ───────────────────── */
-  .nl-sentence {
-    font-family: var(--font);
-    font-size: 12px;
-    font-style: italic;
-    color: var(--color-text-medium);
-    margin-bottom: 10px;
-    line-height: 1.4;
-  }
-
-  /* ── Data ──────────────────────────── */
+  /* ── Stat rows ─────────────────────── */
   .stat-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
   }
 
   .stat-lbl {
     font-family: var(--font);
     font-weight: 300;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--color-text-dark);
   }
 
   .stat-val {
     font-family: var(--font);
     font-weight: 700;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--color-text-dark);
   }
 
+  /* ── Gradient bars with position marker ── */
   .bar-track {
+    position: relative;
     width: 100%;
     height: 8px;
     border-radius: 4px;
-    background: rgba(0,0,0,0.08);
-    overflow: hidden;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
   }
 
-  .bar-fill {
-    height: 100%;
+  .bar-gradient {
+    position: absolute;
+    inset: 0;
     border-radius: 4px;
-    background: linear-gradient(90deg, #ffec81, #4a9a20, #005f00);
-    transition: width 0.4s ease;
   }
 
+  .tcd-gradient {
+    background: linear-gradient(90deg, #ffec81 0%, #005f00 100%);
+  }
+
+  .con-gradient {
+    background: linear-gradient(90deg, rgba(7,82,63,0.12) 0%, rgba(7,82,63,1) 100%);
+  }
+
+  .bro-gradient {
+    background: linear-gradient(90deg, rgba(199,180,71,0.12) 0%, rgba(199,180,71,1) 100%);
+  }
+
+  .bar-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 16px;
+    background: rgba(0,0,0,0.75);
+    border-radius: 1px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.35);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ── Source credit ─────────────────── */
   .source {
     font-family: var(--font);
     font-size: 10px;
     color: var(--color-text-light);
     line-height: 1.3;
+    margin: 0;
   }
 
   /* ── Arrow ─────────────────────────── */
