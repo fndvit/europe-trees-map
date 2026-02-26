@@ -26,6 +26,7 @@
     layer: Layer;
     mapStep: number;
     isExploration?: boolean;
+    isSplit?: boolean;
   }
 
   // ─── Story steps — matching Observable notebook @694 ────────────────────────
@@ -59,6 +60,12 @@
       text: "From Germany through the Baltic to the Nordic countries, the landscape is mainly coniferous forests: pines, spruces, cypresses, and firs, which are well-adapted to the colder, nutrient-poor soils.",
       layer: 'conifers',
       mapStep: 5
+    },
+    {
+      text: "Here's a direct comparison. On the left, tree cover density alone. On the right, density combined with forest type — showing both how dense and what kind.",
+      layer: 'density',
+      mapStep: 6,
+      isSplit: true
     },
     {
       text: "This view combines both tree cover density and the dominant leaf type. Darker shades of the same color mean denser coverage, while the hue still shows the forest type.",
@@ -97,6 +104,7 @@
   // ─── Derived ─────────────────────────────────────────────────────────────────
   let isExploration    = $derived(currentStep === STEPS.length - 1);
   let currentStepData  = $derived(currentStep >= 0 ? STEPS[currentStep] : null);
+  let isSplit          = $derived(currentStepData?.isSplit === true);
   let showUI           = $derived(!introVisible && currentStep >= 0);
   let legendLayer      = $derived(
     (['density', 'type-density', 'broadleaved'].includes(activeLayer)
@@ -223,12 +231,28 @@
     onclick={(e) => { lastClickX = e.clientX; lastClickY = e.clientY; }}
     onkeydown={() => {}}
   >
-    <Map
-      step={mapStep}
-      activeLayer={activeLayer}
-      onload={handleMapLoad}
-      onmapclick={handleMapClick}
-    />
+    <!-- Single map (always mounted, fades out in split mode) -->
+    <div class="single-map" class:faded={isSplit}>
+      <Map
+        step={mapStep}
+        activeLayer={activeLayer}
+        onload={handleMapLoad}
+        onmapclick={handleMapClick}
+      />
+    </div>
+
+    <!-- Split stage (always mounted, fades in for split step) -->
+    <div class="split-stage" class:visible={isSplit}>
+      <div class="split-half">
+        <Map step={mapStep} activeLayer="density" />
+        <div class="split-label">Tree cover density</div>
+      </div>
+      <div class="split-divider"></div>
+      <div class="split-half">
+        <Map step={mapStep} activeLayer="type-density" />
+        <div class="split-label">Forest type + density</div>
+      </div>
+    </div>
 
     <Navbar visible={showUI} />
 
@@ -251,7 +275,7 @@
 
     <Legend
       layer={legendLayer}
-      visible={showUI && !isExploration}
+      visible={showUI && !isExploration && !isSplit}
     />
 
     <LayerSelector
@@ -349,6 +373,77 @@
 
     .step-dots.visible {
       opacity: 1;
+    }
+  }
+
+  /* Single map wrapper — full viewport, fades out in split mode */
+  .single-map {
+    position: absolute;
+    inset: 0;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+  }
+  .single-map.faded {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Split comparison layout */
+  .split-stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: row;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .split-stage.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .split-half {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .split-divider {
+    width: 2px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.55);
+    z-index: 10;
+  }
+
+  .split-label {
+    position: absolute;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: var(--color-glass-heavy);
+    backdrop-filter: var(--blur-medium);
+    -webkit-backdrop-filter: var(--blur-medium);
+    padding: 5px 14px;
+    border-radius: var(--radius-pill);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: var(--color-text-dark);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  @media (max-width: 600px) {
+    .split-stage {
+      flex-direction: column;
+    }
+    .split-divider {
+      width: auto;
+      height: 2px;
     }
   }
 </style>
