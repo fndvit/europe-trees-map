@@ -10,11 +10,10 @@
 
   interface Props {
     visible?: boolean;
-    activeLayer?: Layer;
-    onchange?: (layer: Layer) => void;
+    layers?: Layer[];
   }
 
-  let { visible = false, activeLayer = 'broadleaved', onchange }: Props = $props();
+  let { visible = false, layers = [] }: Props = $props();
 
   const LAYERS: LayerOption[] = [
     {
@@ -49,130 +48,116 @@
     }
   ];
 
+  const visibleLayers = $derived(LAYERS.filter(l => layers.includes(l.id)));
 </script>
 
-<div class="selector-wrap" class:visible>
-  <div class="selector-track">
-    {#each LAYERS as opt}
-      <button
-        class="layer-btn"
-        class:active={activeLayer === opt.id}
-        onclick={() => onchange?.(opt.id)}
-      >
-        <div class="layer-swatch" style="background: {opt.gradient}"></div>
-        <div class="layer-text">
-          <span class="layer-label">{opt.label}</span>
-          <span class="layer-sublabel">{opt.sublabel}</span>
+<div class="story-card-wrap" class:visible>
+  <div class="story-card-track">
+    {#each visibleLayers as opt, i}
+      {#if i > 0}<div class="story-card-divider"></div>{/if}
+      <div class="story-card">
+        <div class="card-swatch" style="background: {opt.gradient}"></div>
+        <div class="card-text">
+          <span class="card-label">{opt.label}</span>
+          <span class="card-sublabel">{opt.sublabel}</span>
         </div>
-      </button>
+      </div>
     {/each}
   </div>
 </div>
 
 <style>
-  .selector-wrap {
+  .story-card-wrap {
     position: absolute;
     bottom: 20px;
-    left: 20px;
     right: 20px;
     z-index: 20;
     opacity: 0;
     transform: translateY(12px);
     transition: opacity 0.5s ease, transform 0.5s ease;
     pointer-events: none;
-    overflow: hidden;
   }
 
-  .selector-wrap.visible {
+  .story-card-wrap.visible {
     opacity: 1;
     transform: none;
-    pointer-events: auto;
   }
 
-  .selector-track {
+  .story-card-track {
     display: flex;
     flex-direction: row;
     align-items: stretch;
-    gap: 0;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
     background: var(--color-glass-light);
     backdrop-filter: var(--blur-light);
     -webkit-backdrop-filter: var(--blur-light);
     box-shadow: 0px -2px 16px rgba(0,0,0,0.1);
     border-radius: var(--radius-card);
-    padding: 10px;
-    gap: 2px;
+    padding: 8px;
+    gap: 0;
   }
 
-  .selector-track::-webkit-scrollbar {
-    display: none;
+  .story-card-divider {
+    width: 1px;
+    background: rgba(160, 160, 160, 0.4);
+    flex-shrink: 0;
+    margin: 4px 0;
   }
 
-  .layer-btn {
+  .story-card {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
-    padding: 8px 24px 8px 8px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    border-radius: 8px;
-    transition: background 0.2s;
-    flex-shrink: 0;
-    scroll-snap-align: start;
-    position: relative;
-    border-right: 1px dashed rgba(160, 160, 160, 0.4);
+    gap: 10px;
+    padding: 6px 14px 6px 6px;
+    cursor: default;
   }
 
-  .layer-btn:last-child {
-    border-right: none;
-  }
-
-  .layer-btn.active {
-    background: rgba(255,255,255,0.9);
-    box-shadow: 0px 0px 16px rgba(0,0,0,0.25);
-  }
-
-  .layer-swatch {
-    width: 120px;
-    height: 90px;
-    border-radius: 8px;
+  .card-swatch {
+    width: 80px;
+    height: 60px;
+    border-radius: 6px;
     flex-shrink: 0;
     box-shadow: 0px 1px 8px rgba(0,0,0,0.1);
   }
 
-  .layer-text {
+  .card-text {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    width: 141px;
+    gap: 4px;
+    width: 110px;
     text-align: left;
   }
 
-  .layer-label {
+  .card-label {
     font-family: var(--font);
     font-weight: 700;
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1.22;
     color: var(--color-text-dark);
   }
 
-  .layer-sublabel {
+  .card-sublabel {
     font-family: var(--font);
     font-weight: 300;
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1.21;
     color: var(--color-text-dark);
+    opacity: 0.7;
   }
 
-  .layer-btn:not(.active) .layer-label {
-    color: #aaa;
-    opacity: 0.8;
+  @media (max-width: 600px) {
+    .story-card-wrap {
+      right: 12px;
+      bottom: 16px;
+    }
+
+    .card-swatch {
+      width: 60px;
+      height: 46px;
+    }
+
+    .card-text {
+      width: 90px;
+    }
   }
-
-
 </style>

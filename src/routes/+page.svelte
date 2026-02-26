@@ -5,9 +5,9 @@
   import Intro from '$lib/components/Intro.svelte';
   import Navbar from '$lib/components/Navbar.svelte';
   import InfoCard from '$lib/components/InfoCard.svelte';
-  import Legend from '$lib/components/Legend.svelte';
   import SearchBar from '$lib/components/SearchBar.svelte';
   import LayerSelector from '$lib/components/LayerSelector.svelte';
+  import StoryLayerCard from '$lib/components/StoryLayerCard.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
 
   type Layer = 'density' | 'type-density' | 'broadleaved' | 'conifers' | 'forest-type';
@@ -106,10 +106,8 @@
   let currentStepData  = $derived(currentStep >= 0 ? STEPS[currentStep] : null);
   let isSplit          = $derived(currentStepData?.isSplit === true);
   let showUI           = $derived(!introVisible && currentStep >= 0);
-  let legendLayer      = $derived(
-    (['density', 'type-density', 'broadleaved'].includes(activeLayer)
-      ? activeLayer
-      : 'density') as 'density' | 'type-density' | 'broadleaved'
+  let storyLayers = $derived<Layer[]>(
+    isSplit ? ['density', 'type-density'] : [activeLayer]
   );
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -245,12 +243,10 @@
     <div class="split-stage" class:visible={isSplit}>
       <div class="split-half">
         <Map step={mapStep} activeLayer="density" />
-        <div class="split-label">Tree cover density</div>
       </div>
       <div class="split-divider"></div>
       <div class="split-half">
         <Map step={mapStep} activeLayer="type-density" />
-        <div class="split-label">Forest type + density</div>
       </div>
     </div>
 
@@ -273,11 +269,13 @@
       />
     {/if}
 
-    <Legend
-      layer={legendLayer}
-      visible={showUI && !isExploration && !isSplit}
+    <!-- Story card: compact, bottom right, informational -->
+    <StoryLayerCard
+      visible={showUI && !isExploration}
+      layers={storyLayers}
     />
 
+    <!-- Exploration bar: full width, all 5 layers, interactive -->
     <LayerSelector
       visible={isExploration && showUI}
       activeLayer={activeLayer}
@@ -415,25 +413,6 @@
     width: 2px;
     flex-shrink: 0;
     background: rgba(255, 255, 255, 0.55);
-    z-index: 10;
-  }
-
-  .split-label {
-    position: absolute;
-    bottom: 36px;
-    left: 50%;
-    transform: translateX(-50%);
-    white-space: nowrap;
-    background: var(--color-glass-heavy);
-    backdrop-filter: var(--blur-medium);
-    -webkit-backdrop-filter: var(--blur-medium);
-    padding: 5px 14px;
-    border-radius: var(--radius-pill);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.03em;
-    color: var(--color-text-dark);
-    pointer-events: none;
     z-index: 10;
   }
 
