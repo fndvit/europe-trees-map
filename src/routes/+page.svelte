@@ -14,8 +14,10 @@
 
   interface TooltipData {
     name: string;
-    density: number;    // 0–100 from Copernicus TCD, or -1 while loading
-    leafType: number;   // 1=broadleaved, 2=coniferous, 0=unknown/no data
+    density: number;     // 0–100 from EEA TCD identify
+    leafType: number;    // 1=broadleaved, 2=coniferous, 0=unknown
+    conifers: number;    // ha from DLT computeHistograms (-1 = unavailable)
+    broadleaves: number; // ha from DLT computeHistograms (-1 = unavailable)
     loading?: boolean;
     x: number;
     y: number;
@@ -143,7 +145,7 @@
   async function handleMapClick(data: { lng: number; lat: number }) {
     if (tooltipData) { tooltipData = null; return; }
 
-    tooltipData = { name: '…', density: -1, leafType: 0, loading: true, x: lastClickX, y: lastClickY };
+    tooltipData = { name: '…', density: -1, leafType: 0, conifers: -1, broadleaves: -1, loading: true, x: lastClickX, y: lastClickY };
 
     const [x, y] = to3857(data.lng, data.lat);
     const EEA_BASE = 'https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic';
@@ -152,7 +154,13 @@
 
     const TCD_URL = IDENTIFY('HRL_TreeCoverDensity_2018');
     const DLT_URL = IDENTIFY('HRL_DominantLeafType2018');
-    const NOM_URL = `https://nominatim.openstreetmap.org/reverse?lat=${data.lat}&lon=${data.lng}&format=json&zoom=10`;
+    const NOM_URL = `https://nominatim.openstreetmap.org/reverse?lat=${data.lat}&lon=${data.lng}&format=json&zoom=10&polygon_geojson=1`;
+
+    let density = 0;
+    let leafType = 0;
+    let name = `${data.lat.toFixed(2)}°, ${data.lng.toFixed(2)}°`;
+    let conifers = -1;
+    let broadleaves = -1;
 
     try {
       const [tcdRes, dltRes, nomRes] = await Promise.all([
@@ -165,21 +173,49 @@
 
       // TCD: 0–100 are valid density %; special codes mean outside/sea/unclassified
       const rawTcd = parseInt(tcd.value ?? '-1', 10);
-      const density = rawTcd >= 0 && rawTcd <= 100 ? rawTcd : 0;
+      density = rawTcd >= 0 && rawTcd <= 100 ? rawTcd : 0;
 
       // DLT: 1=broadleaved, 2=coniferous; other values = no data
       const rawDlt = parseInt(dlt.value ?? '0', 10);
-      const leafType = rawDlt === 1 || rawDlt === 2 ? rawDlt : 0;
+      leafType = rawDlt === 1 || rawDlt === 2 ? rawDlt : 0;
 
       const a = nom.address ?? {};
-      const name = a.city ?? a.town ?? a.village ?? a.municipality
-                ?? a.county ?? a.state ?? nom.display_name?.split(',')[0]
-                ?? `${data.lat.toFixed(2)}°, ${data.lng.toFixed(2)}°`;
+      name = a.city ?? a.town ?? a.village ?? a.municipality
+              ?? a.county ?? a.state ?? nom.display_name?.split(',')[0]
+              ?? `${data.lat.toFixed(2)}°, ${data.lng.toFixed(2)}°`;
 
-      tooltipData = { name, density, leafType, loading: false, x: lastClickX, y: lastClickY };
+      // Fetch histogram data from EEA DLT using the Nominatim polygon boundary.
+      // ArcGIS ImageServer expects ArcGIS JSON (rings[]), not raw GeoJSON.
+      // Each pixel = 10m × 10m = 0.01 ha; bins[1]=broadleaved, bins[2]=coniferous
+      if (nom.geojson) {
+        try {
+          const gj = nom.geojson;
+          let rings: number[][][] = [];
+          if (gj.type === 'Polygon') {
+            rings = gj.coordinates;
+          } else if (gj.type === 'MultiPolygon') {
+            rings = gj.coordinates.flatMap((p: number[][][]) => p);
+          }
+          if (rings.length > 0) {
+            const arcGeom = { rings, spatialReference: { wkid: 4326 } };
+            const histUrl = `${EEA_BASE}/HRL_DominantLeafType2018/ImageServer/computeHistograms`
+              + `?geometry=${encodeURIComponent(JSON.stringify(arcGeom))}`
+              + `&geometryType=esriGeometryPolygon&sr=4326&f=json`;
+            const histRes = await fetch(histUrl);
+            const hist = await histRes.json();
+            const bins = hist?.histograms?.[0]?.counts ?? [];
+            broadleaves = Math.round((bins[1] ?? 0) * 0.01);
+            conifers    = Math.round((bins[2] ?? 0) * 0.01);
+          }
+        } catch {
+          // histogram unavailable — keep -1 to show "—" in tooltip
+        }
+      }
     } catch {
-      tooltipData = null;
+      // main fetches failed — show coordinate fallback with no stats
     }
+
+    tooltipData = { name, density, leafType, conifers, broadleaves, loading: false, x: lastClickX, y: lastClickY };
   }
 
   // ─── Scroll-driven step detection ────────────────────────────────────────────

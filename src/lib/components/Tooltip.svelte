@@ -128,7 +128,7 @@
           <div class="skeleton bar-skel"></div>
         </div>
       {:else}
-        <!-- Description + tree icons row -->
+        <!-- Description + tree icons row (hidden on mobile) -->
         <div class="desc-row">
           <p class="nl-sentence">{leafTypeLabel(data.leafType, data.density)}</p>
           {#if treeIcons.length > 0}
@@ -144,34 +144,50 @@
 
         <hr class="divider" />
 
-        <!-- Tree cover density bar -->
-        <div class="stat-row">
-          <span class="stat-lbl">Tree cover density</span>
-          <span class="stat-val">{data.density}%</span>
-        </div>
-        <div class="bar-track">
-          <div class="bar-gradient tcd-gradient"></div>
-          <div class="bar-marker" style="left:{tcdPos}%"></div>
+        <!-- Desktop: gradient bars with position markers -->
+        <div class="bars-desktop">
+          <div class="stat-row">
+            <span class="stat-lbl">Tree cover density</span>
+            <span class="stat-val">{data.density}%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-gradient tcd-gradient"></div>
+            <div class="bar-marker" style="left:{tcdPos}%"></div>
+          </div>
+
+          <div class="stat-row">
+            <span class="stat-lbl">Conifers</span>
+            <span class="stat-val">{formatHa(data.conifers)}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-gradient con-gradient"></div>
+            <div class="bar-marker" style="left:{conifersPos}%"></div>
+          </div>
+
+          <div class="stat-row">
+            <span class="stat-lbl">Broadleaves</span>
+            <span class="stat-val">{formatHa(data.broadleaves)}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-gradient bro-gradient"></div>
+            <div class="bar-marker" style="left:{broadleavesPos}%"></div>
+          </div>
         </div>
 
-        <!-- Conifers bar -->
-        <div class="stat-row">
-          <span class="stat-lbl">Conifers</span>
-          <span class="stat-val">{formatHa(data.conifers)}</span>
-        </div>
-        <div class="bar-track">
-          <div class="bar-gradient con-gradient"></div>
-          <div class="bar-marker" style="left:{conifersPos}%"></div>
-        </div>
-
-        <!-- Broadleaves bar -->
-        <div class="stat-row">
-          <span class="stat-lbl">Broadleaves</span>
-          <span class="stat-val">{formatHa(data.broadleaves)}</span>
-        </div>
-        <div class="bar-track">
-          <div class="bar-gradient bro-gradient"></div>
-          <div class="bar-marker" style="left:{broadleavesPos}%"></div>
+        <!-- Mobile: plain numbers only, no bars -->
+        <div class="stats-mobile">
+          <div class="mobile-stat">
+            <span class="stat-lbl">Tree cover density</span>
+            <span class="stat-val">{data.density}%</span>
+          </div>
+          <div class="mobile-stat">
+            <span class="stat-lbl">Conifers</span>
+            <span class="stat-val">{formatHa(data.conifers)}</span>
+          </div>
+          <div class="mobile-stat">
+            <span class="stat-lbl">Broadleaves</span>
+            <span class="stat-val">{formatHa(data.broadleaves)}</span>
+          </div>
         </div>
 
         <p class="source">Copernicus HRL 2018 · © EEA</p>
@@ -207,6 +223,13 @@
     width: 280px;
     box-shadow: var(--shadow-tooltip);
     position: relative;
+  }
+
+  @media (max-width: 600px) {
+    .bubble {
+      width: 220px;
+      padding: 12px 12px 10px;
+    }
   }
 
   .close-btn {
@@ -360,6 +383,27 @@
     box-shadow: 0 0 0 1px rgba(255,255,255,0.35);
     pointer-events: none;
     z-index: 2;
+  }
+
+  /* ── Desktop bars / mobile numbers toggle ── */
+  .bars-desktop { display: block; }
+  .stats-mobile { display: none; }
+
+  @media (max-width: 600px) {
+    .bars-desktop { display: none; }
+    .desc-row .tree-icons { display: none; }
+
+    .stats-mobile {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mobile-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
   }
 
   /* ── Source credit ─────────────────── */
