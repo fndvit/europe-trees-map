@@ -242,6 +242,7 @@
     {#if currentStepData}
       <InfoCard
         text={currentStepData.text}
+        icon="/assets/trees-icon.svg"
         visible={showUI}
         exploration={isExploration}
         progress={scrollProgress}

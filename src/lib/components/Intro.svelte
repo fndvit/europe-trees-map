@@ -13,7 +13,7 @@
 
   <!-- GitHub link top-right -->
   <a
-    href="https://github.com"
+    href="https://github.com/fndvit/europe-trees-map"
     target="_blank"
     rel="noopener noreferrer"
     class="github-link"
@@ -33,15 +33,15 @@
   <!-- Bottom-right: tree + scroll CTA -->
   <div class="corner">
     {#if loading}
-      <!-- Loading state: animated tree + "Loading map" label -->
+      <!-- Loading state: animated trees strip + "Loading map" label -->
       <div class="state loading-state">
-        <img src="/assets/badam-tree.svg" alt="" class="badam-tree" />
+        <img src="/assets/trees-icon.svg" alt="" class="corner-trees loading-trees" />
         <span class="label">Loading map</span>
       </div>
     {:else}
-      <!-- Ready state: pinus tree + "Scroll to the map" -->
+      <!-- Ready state: trees strip + "Scroll to the map" -->
       <div class="state ready-state">
-        <img src="/assets/pinus-tree.svg" alt="" class="pinus-tree" />
+        <img src="/assets/trees-icon.svg" alt="" class="corner-trees" />
         <span class="label">Scroll to<br />the map</span>
       </div>
     {/if}
@@ -139,20 +139,18 @@
     to   { opacity: 1; transform: none; }
   }
 
-  .badam-tree {
-    width: 56px;
-    opacity: 0.65;
+  .corner-trees {
+    width: 140px;
+    opacity: 0.7;
+  }
+
+  .corner-trees.loading-trees {
     animation: pulse 1.8s ease-in-out infinite;
   }
 
   @keyframes pulse {
     0%, 100% { opacity: 0.4; }
     50%       { opacity: 0.8; }
-  }
-
-  .pinus-tree {
-    width: 24px;
-    opacity: 0.85;
   }
 
   .label {
@@ -173,11 +171,12 @@
     transform: translateX(-50%);
     color: rgba(255, 255, 255, 0.5);
     animation: bounce 2s ease-in-out infinite;
-    transition: color 0.4s;
+    transition: opacity 0.6s ease;
   }
 
   .scroll-arrow.dimmed {
-    color: rgba(255, 255, 255, 0.2);
+    opacity: 0;
+    pointer-events: none;
   }
 
   @keyframes bounce {

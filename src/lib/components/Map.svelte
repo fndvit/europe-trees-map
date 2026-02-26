@@ -155,6 +155,7 @@
         zoom: 3.25,
         minZoom: 3,
         maxZoom: 12.9,
+        maxBounds: [[-20, 30], [42, 72]] as [[number, number], [number, number]],
         pitch: 0,
         attributionControl: false,
         logoPosition: 'bottom-left',
