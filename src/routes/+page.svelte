@@ -233,7 +233,7 @@
     <Navbar visible={showUI} />
 
     <SearchBar
-      visible={showUI}
+      visible={isExploration && showUI}
       onflyto={handleFlyTo}
       dark={isExploration}
       exploration={isExploration}
