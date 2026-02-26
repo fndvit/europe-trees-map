@@ -18,56 +18,123 @@
   let isLoaded = $state(false);
   let cleanupFlyTo: (() => void) | undefined;
 
+  // Exact map positions from the Observable notebook @694
   const MAP_STEPS = [
-    { center: [10, 52] as [number, number], zoom: 4 },
-    { center: [-4, 37] as [number, number], zoom: 7.2 },
-    { center: [5, 46] as [number, number], zoom: 5.2 },
-    { center: [13, 46.5] as [number, number], zoom: 6.2 }
+    { center: [12.942, 53.300] as [number, number], zoom: 3.25 },   // 0 Europe overview
+    { center: [-4.761, 36.636] as [number, number], zoom: 8.08 },   // 1 South of Spain
+    { center: [19.227, 61.420] as [number, number], zoom: 5.36 },   // 2 Scandinavia
+    { center: [12.942, 53.300] as [number, number], zoom: 3.25 },   // 3 Europe forest types
+    { center: [7.296,  44.736] as [number, number], zoom: 4.21 },   // 4 Southern Europe broadleaved
+    { center: [8.874,  57.116] as [number, number], zoom: 4.27 },   // 5 Northern Europe coniferous
+    { center: [12.942, 53.300] as [number, number], zoom: 3.25 },   // 6 Europe combined
+    { center: [-8.972, 38.697] as [number, number], zoom: 8.5  },   // 7 Lisbon
+    { center: [14.362, 46.042] as [number, number], zoom: 8.5  },   // 8 Ljubljana
+    { center: [12.942, 53.300] as [number, number], zoom: 3.25 },   // 9 Explore
   ];
 
-  // ── Real forest data: Copernicus High Resolution Layers via EEA ImageServer ──
-  // Source: Copernicus Land Monitoring Service (CLMS), © European Union, 2018
-  // Served via EEA DiscoMap ArcGIS ImageServer exportImage endpoint.
-  // MapLibre fills in {bbox-epsg-3857} with the tile's EPSG:3857 bounding box.
-  // transparent=true makes non-forest pixels transparent so basemap shows through.
-  const EEA_BASE = 'https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic';
-  const EXPORT   = (svc: string) =>
-    `${EEA_BASE}/${svc}/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&size=256,256&format=png&transparent=true&f=image`;
+  // ── WMS tile URL builder (GeoVille, Copernicus HRL 2021) ─────────────────────
+  // GeoServer supports SLD_BODY for custom per-request styling. This lets us:
+  //   • Filter DLT by pixel value (1=broadleaved, 2=coniferous)
+  //   • Apply the notebook colour palette directly at the server
+  // Confirmed: CORS access-control-allow-origin: * ✓  SLD_BODY returns image/png ✓
+  const GV = 'https://geoserver.vlcc.geoville.com/geoserver/ows';
+  const TILE_BASE = `service=WMS&version=1.1.1&request=GetMap&format=image/png` +
+    `&transparent=true&width=256&height=256&srs=EPSG:3857&bbox={bbox-epsg-3857}`;
 
-  const FOREST_SOURCES = {
-    // Tree Cover Density: 0–100 % per 10 m pixel (yellow = sparse, green = dense)
-    tcd: EXPORT('HRL_TreeCoverDensity_2018'),
-    // Dominant Leaf Type: broadleaved (warm hue) vs coniferous (cool hue)
-    dlt: EXPORT('HRL_DominantLeafType2018'),
-    // Forest Type: FAO-based forest classification
-    fty: EXPORT('HRL_ForestType_2018')
-  } as const;
+  function wmsUrl(layerName: string, sld: string): string {
+    return `${GV}?${TILE_BASE}&layers=${layerName}&SLD_BODY=${encodeURIComponent(sld)}`;
+  }
 
-  // Which Copernicus layer to show for each app-level layer mode
-  const LAYER_SOURCE: Record<Layer, keyof typeof FOREST_SOURCES> = {
-    density:        'tcd',
-    'type-density': 'dlt',
-    broadleaved:    'dlt',
-    conifers:       'dlt',
-    'forest-type':  'fty'
+  // SLD bodies — inline GeoServer RasterSymbolizer styles
+  // DLT values: 1 = broadleaved, 2 = coniferous, everything else = background (transparent)
+  const SLD_DLT_BRO =
+    `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
+    `<NamedLayer><Name>HRL_TCF:DLT_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<RasterSymbolizer><ColorMap type="values">` +
+    `<ColorMapEntry color="#c7b447" quantity="1" opacity="1.0"/>` +
+    `</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>` +
+    `</StyledLayerDescriptor>`;
+
+  const SLD_DLT_CON =
+    `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
+    `<NamedLayer><Name>HRL_TCF:DLT_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<RasterSymbolizer><ColorMap type="values">` +
+    `<ColorMapEntry color="#07523f" quantity="2" opacity="1.0"/>` +
+    `</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>` +
+    `</StyledLayerDescriptor>`;
+
+  const SLD_DLT_BOTH =
+    `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
+    `<NamedLayer><Name>HRL_TCF:DLT_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<RasterSymbolizer><ColorMap type="values">` +
+    `<ColorMapEntry color="#c7b447" quantity="1" opacity="1.0"/>` +
+    `<ColorMapEntry color="#07523f" quantity="2" opacity="1.0"/>` +
+    `</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>` +
+    `</StyledLayerDescriptor>`;
+
+  // TCD values: 0–100 (% cover). 0 = no trees (transparent). 101+ = special/outside (transparent).
+  // Gradient: sparse (low %) → yellow #ffec81, dense (high %) → dark green #005f00
+  const SLD_TCD_DENSITY =
+    `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
+    `<NamedLayer><Name>HRL_TCF:TCD_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<RasterSymbolizer><ColorMap type="ramp">` +
+    `<ColorMapEntry color="#005f00" quantity="0"   opacity="0.0"/>` +
+    `<ColorMapEntry color="#ffec81" quantity="5"   opacity="0.85"/>` +
+    `<ColorMapEntry color="#4a9a20" quantity="50"  opacity="0.85"/>` +
+    `<ColorMapEntry color="#005f00" quantity="100" opacity="0.85"/>` +
+    `<ColorMapEntry color="#005f00" quantity="101" opacity="0.0"/>` +
+    `</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>` +
+    `</StyledLayerDescriptor>`;
+
+  // TCD as a white opacity mask on top of DLT:
+  // sparse areas → more opaque white (DLT colour washed out)
+  // dense areas  → transparent (DLT colour shows at full saturation)
+  // → darker/richer colour = denser forest
+  const SLD_TCD_MASK =
+    `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
+    `<NamedLayer><Name>HRL_TCF:TCD_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<RasterSymbolizer><ColorMap type="ramp">` +
+    `<ColorMapEntry color="#ffffff" quantity="0"   opacity="0.0"/>` +
+    `<ColorMapEntry color="#ffffff" quantity="1"   opacity="0.85"/>` +
+    `<ColorMapEntry color="#ffffff" quantity="50"  opacity="0.4"/>` +
+    `<ColorMapEntry color="#ffffff" quantity="100" opacity="0.0"/>` +
+    `</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>` +
+    `</StyledLayerDescriptor>`;
+
+  // Source/layer registry — DLT layers first, TCD mask last (renders on top of DLT)
+  const FOREST_SOURCES: Record<string, string> = {
+    'dlt-bro':     wmsUrl('HRL_TCF:DLT_S2021', SLD_DLT_BRO),
+    'dlt-con':     wmsUrl('HRL_TCF:DLT_S2021', SLD_DLT_CON),
+    'dlt-both':    wmsUrl('HRL_TCF:DLT_S2021', SLD_DLT_BOTH),
+    'tcd-density': wmsUrl('HRL_TCF:TCD_S2021', SLD_TCD_DENSITY),
+    'tcd-mask':    wmsUrl('HRL_TCF:TCD_S2021', SLD_TCD_MASK),
+  };
+
+  // Which layers to show for each app-level mode
+  const VISIBLE: Record<Layer, string[]> = {
+    density:        ['tcd-density'],
+    broadleaved:    ['dlt-bro'],
+    conifers:       ['dlt-con'],
+    'forest-type':  ['dlt-both'],
+    'type-density': ['dlt-both', 'tcd-mask'],  // DLT base + white density mask on top
   };
 
   function applyLayer(layer: Layer) {
     if (!map || !isLoaded) return;
-    const active = LAYER_SOURCE[layer];
-    (Object.keys(FOREST_SOURCES) as Array<keyof typeof FOREST_SOURCES>).forEach(key => {
-      map.setPaintProperty(`cop-${key}`, 'raster-opacity', key === active ? 0.85 : 0);
-    });
+    const visible = new Set(VISIBLE[layer]);
+    for (const id of Object.keys(FOREST_SOURCES)) {
+      map.setLayoutProperty(`cop-${id}`, 'visibility', visible.has(id) ? 'visible' : 'none');
+    }
   }
 
-  // Fly to narrative step when `step` changes
+  // Fly to narrative step when `step` prop changes
   $effect(() => {
     if (!isLoaded) return;
     const cfg = MAP_STEPS[step] ?? MAP_STEPS[0];
     map?.easeTo({ center: cfg.center, zoom: cfg.zoom, duration: 2400, essential: true });
   });
 
-  // Switch forest data layer when `activeLayer` changes
+  // Switch forest layer when `activeLayer` prop changes
   $effect(() => {
     if (!isLoaded) return;
     applyLayer(activeLayer);
@@ -76,14 +143,11 @@
   onMount(() => {
     if (!browser) return;
 
-    // Load MapLibre and PMTiles together so PMTiles protocol is ready before
-    // any pmtiles:// URLs are resolved.
     Promise.all([
       import('maplibre-gl'),
       import('pmtiles')
     ]).then(([{ default: maplibregl }, { Protocol }]) => {
 
-      // Register the PMTiles protocol handler — enables pmtiles:// source URLs
       const pmtilesProtocol = new Protocol();
       maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile.bind(pmtilesProtocol));
 
@@ -91,40 +155,45 @@
         container: mapContainer,
         style: 'https://tiles.openfreemap.org/styles/liberty',
         center: [10, 52],
-        zoom: 4,
+        zoom: 3.25,
+        minZoom: 3,
+        maxZoom: 12.9,
         pitch: 0,
         attributionControl: false,
         logoPosition: 'bottom-left',
         scrollZoom: false
+        // cooperativeGestures omitted: it calls preventDefault() on wheel events,
+        // which blocks the page scroll that drives the scrollytelling story.
       });
 
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+      map.dragRotate.disable();
+      map.touchZoomRotate.disableRotation();
 
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
       map.getCanvas().style.cursor = 'crosshair';
       map.on('mousemove', () => { map.getCanvas().style.cursor = 'crosshair'; });
 
       map.on('load', () => {
-        // Add each Copernicus source + an initially-hidden raster layer
-        (Object.entries(FOREST_SOURCES) as [keyof typeof FOREST_SOURCES, string][])
-          .forEach(([key, url]) => {
-            map.addSource(`cop-${key}`, {
-              type: 'raster',
-              tiles: [url],
-              tileSize: 256,
-              attribution: '© Copernicus Land Monitoring Service / EEA'
-            });
-            map.addLayer({
-              id: `cop-${key}`,
-              type: 'raster',
-              source: `cop-${key}`,
-              paint: { 'raster-opacity': 0 }
-            });
+        // Add all forest sources + layers (initially hidden)
+        for (const [id, tileUrl] of Object.entries(FOREST_SOURCES)) {
+          map.addSource(`cop-${id}`, {
+            type: 'raster',
+            tiles: [tileUrl],
+            tileSize: 256,
+            attribution: '© Copernicus Land Monitoring Service / GeoVille 2021'
           });
+          map.addLayer({
+            id: `cop-${id}`,
+            type: 'raster',
+            source: `cop-${id}`,
+            layout: { visibility: 'none' },
+            paint: { 'raster-opacity': 0.9 }
+          });
+        }
 
-        // Reveal the active layer
-        applyLayer(activeLayer);
-
+        // Set isLoaded BEFORE applyLayer so the guard inside it passes
         isLoaded = true;
+        applyLayer(activeLayer);
         onload?.();
       });
 
@@ -132,7 +201,6 @@
         onmapclick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
       });
 
-      // External flyTo command fired by SearchBar
       const handleFlyTo = (e: Event) => {
         const { lat, lng } = (e as CustomEvent).detail;
         map.flyTo({ center: [lng, lat], zoom: 11, duration: 2000, essential: true });

@@ -14,7 +14,8 @@
 
   interface TooltipData {
     name: string;
-    density: number;   // 0–100 from Copernicus TCD, or -1 while loading
+    density: number;    // 0–100 from Copernicus TCD, or -1 while loading
+    leafType: number;   // 1=broadleaved, 2=coniferous, 0=unknown/no data
     loading?: boolean;
     x: number;
     y: number;
@@ -27,7 +28,7 @@
     isExploration?: boolean;
   }
 
-  // ─── Story steps ────────────────────────────────────────────────────────────
+  // ─── Story steps — matching Observable notebook @694 ────────────────────────
   const STEPS: ScrollStep[] = [
     {
       text: "Europe's forests vary wildly. This map reveals where trees thrive —and where they don't— using high-resolution satellite data.",
@@ -35,19 +36,49 @@
       mapStep: 0
     },
     {
-      text: "Zooming into southern Spain, you can see where tree cover density drops. Dry climate, land use, and desertification mean many areas fall below 30% coverage —shown here as yellowish shades.",
+      text: "Zooming into southern Spain, you can see where tree cover density drops. Dry climate, land use, and desertification mean many areas fall below 30% coverage —shown here in yellowish shades.",
       layer: 'density',
       mapStep: 1
     },
     {
-      text: "Lisbon's forests are mostly broadleaved, but the density is low. Compare that with the forests surrounding Ljubljana, with one of the highest forest densities in Europe.",
-      layer: 'type-density',
+      text: "In contrast, Scandinavia is blanketed in darker green. Sweden and Finland have among the highest tree densities in Europe, with many regions over 80% coverage.",
+      layer: 'density',
       mapStep: 2
     },
     {
-      text: "This view combines both tree cover density and dominant leaf. Darker shades mean denser coverage, while the hue shows the forest type: yellowish for broadleaf, bluish for conifer.",
+      text: "But tree density is only one part of the story —and the data. We can also split trees by type —broadleaved and coniferous.",
+      layer: 'forest-type',
+      mapStep: 3
+    },
+    {
+      text: "In the south — Portugal, Italy, the Balkans — broadleaved trees dominate: oaks, birches, beeches, and chestnuts, rooted in temperate and Mediterranean soils.",
       layer: 'broadleaved',
-      mapStep: 3,
+      mapStep: 4
+    },
+    {
+      text: "From Germany through the Baltic to the Nordic countries, the landscape is mainly coniferous forests: pines, spruces, cypresses, and firs, which are well-adapted to the colder, nutrient-poor soils.",
+      layer: 'conifers',
+      mapStep: 5
+    },
+    {
+      text: "This view combines both tree cover density and the dominant leaf type. Darker shades of the same color mean denser coverage, while the hue still shows the forest type.",
+      layer: 'type-density',
+      mapStep: 6
+    },
+    {
+      text: "Lisbon's forests are mostly broadleaved, but the density is low. Flying over to Slovenia…",
+      layer: 'type-density',
+      mapStep: 7
+    },
+    {
+      text: "…the forests surrounding Ljubljana show one of the highest forest densities in Europe.",
+      layer: 'type-density',
+      mapStep: 8
+    },
+    {
+      text: "Curious what grows near you? Use the map to explore forest patterns across Europe —by density, by type, and by place.",
+      layer: 'type-density',
+      mapStep: 9,
       isExploration: true
     }
   ];
@@ -86,7 +117,7 @@
     activeLayer = layer;
   }
 
-  // Convert WGS84 lng/lat → EPSG:3857 (needed for Copernicus TCD identify endpoint)
+  // Convert WGS84 lng/lat → EPSG:3857 (needed for EEA ImageServer identify)
   function to3857(lng: number, lat: number): [number, number] {
     const x = lng * 20037508.34 / 180;
     const y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180) * 20037508.34 / 180;
@@ -96,32 +127,40 @@
   async function handleMapClick(data: { lng: number; lat: number }) {
     if (tooltipData) { tooltipData = null; return; }
 
-    // Show loading state immediately so the user knows the click registered
-    tooltipData = { name: '…', density: -1, loading: true, x: lastClickX, y: lastClickY };
+    tooltipData = { name: '…', density: -1, leafType: 0, loading: true, x: lastClickX, y: lastClickY };
 
     const [x, y] = to3857(data.lng, data.lat);
-    const TCD_URL = `https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic/HRL_TreeCoverDensity_2018/ImageServer/identify?geometry=${x},${y}&geometryType=esriGeometryPoint&sr=3857&returnGeometry=false&returnCatalogItems=false&f=json`;
+    const EEA_BASE = 'https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic';
+    const IDENTIFY = (svc: string) =>
+      `${EEA_BASE}/${svc}/ImageServer/identify?geometry=${x},${y}&geometryType=esriGeometryPoint&sr=3857&returnGeometry=false&returnCatalogItems=false&f=json`;
+
+    const TCD_URL = IDENTIFY('HRL_TreeCoverDensity_2018');
+    const DLT_URL = IDENTIFY('HRL_DominantLeafType2018');
     const NOM_URL = `https://nominatim.openstreetmap.org/reverse?lat=${data.lat}&lon=${data.lng}&format=json&zoom=10`;
 
     try {
-      const [tcdRes, nomRes] = await Promise.all([
+      const [tcdRes, dltRes, nomRes] = await Promise.all([
         fetch(TCD_URL),
+        fetch(DLT_URL),
         fetch(NOM_URL, { headers: { 'Accept-Language': 'en', 'User-Agent': 'EuropeTreesMap/1.0' } })
       ]);
 
-      const [tcd, nom] = await Promise.all([tcdRes.json(), nomRes.json()]);
+      const [tcd, dlt, nom] = await Promise.all([tcdRes.json(), dltRes.json(), nomRes.json()]);
 
-      // TCD: 0–100 are valid density %; 253/254/255 are special codes (outside/sea/unclassified)
-      const raw = parseInt(tcd.value ?? '-1', 10);
-      const density = raw >= 0 && raw <= 100 ? raw : 0;
+      // TCD: 0–100 are valid density %; special codes mean outside/sea/unclassified
+      const rawTcd = parseInt(tcd.value ?? '-1', 10);
+      const density = rawTcd >= 0 && rawTcd <= 100 ? rawTcd : 0;
 
-      // Best available place name from Nominatim address hierarchy
+      // DLT: 1=broadleaved, 2=coniferous; other values = no data
+      const rawDlt = parseInt(dlt.value ?? '0', 10);
+      const leafType = rawDlt === 1 || rawDlt === 2 ? rawDlt : 0;
+
       const a = nom.address ?? {};
       const name = a.city ?? a.town ?? a.village ?? a.municipality
                 ?? a.county ?? a.state ?? nom.display_name?.split(',')[0]
                 ?? `${data.lat.toFixed(2)}°, ${data.lng.toFixed(2)}°`;
 
-      tooltipData = { name, density, loading: false, x: lastClickX, y: lastClickY };
+      tooltipData = { name, density, leafType, loading: false, x: lastClickX, y: lastClickY };
     } catch {
       tooltipData = null;
     }
@@ -131,8 +170,6 @@
   onMount(() => {
     if (!browser) return;
 
-    // One step = two full viewport heights of scroll (slower card travel)
-    // Layout: [intro-spacer 40vh] [step-0 200vh] [step-1 200vh] ... [outro 40vh]
     const INTRO_SPACER = 0.4;   // fraction of vh
     const STEP_HEIGHT  = 2.0;   // fraction of vh per step
 
@@ -140,15 +177,12 @@
       const scrollY = window.scrollY;
       const vh      = window.innerHeight;
 
-      // Show intro when at top, hide as soon as user scrolls
       introVisible = scrollY <= 10;
 
-      // Which step?
       const relativeScroll = scrollY / vh - INTRO_SPACER;
       const raw = Math.floor(relativeScroll / STEP_HEIGHT);
       const next = Math.min(Math.max(raw, -1), STEPS.length - 1);
 
-      // Progress within the current step (0 = just entered, 1 = about to leave)
       scrollProgress = next >= 0
         ? Math.max(0, Math.min(1, (relativeScroll - next * STEP_HEIGHT) / STEP_HEIGHT))
         : 0;
@@ -164,7 +198,7 @@
     }
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll(); // run once on mount in case page is reloaded mid-scroll
+    onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   });
 </script>
@@ -237,38 +271,31 @@
 
   <!-- Scroll sections: invisible, just create scroll height to drive the story -->
   <div class="scroll-driver" aria-hidden="true">
-    <!-- Small spacer before first step -->
     <div style="height: 40vh"></div>
-    <!-- One section per story step -->
     {#each STEPS as _step}
       <div class="scroll-step"></div>
     {/each}
-    <!-- Outro space -->
     <div style="height: 40vh"></div>
   </div>
 
 </div>
 
 <style>
-  /* ── page wraps the sticky map + scroll driver ───── */
   .page {
     position: relative;
     width: 100%;
   }
 
-  /* ── Sticky full-viewport map ────────────────────── */
   .map-stage {
     position: sticky;
     top: 0;
     width: 100%;
-    height: 100svh;   /* svh = small viewport height — avoids mobile browser chrome issues */
+    height: 100svh;
     overflow: hidden;
     z-index: 1;
   }
 
-  /* ── Invisible scroll track below the sticky map ─── */
   .scroll-driver {
-    /* sits in the normal flow below map-stage, creating scroll height */
     position: relative;
     z-index: 0;
     pointer-events: none;
@@ -278,7 +305,6 @@
     height: 200vh;
   }
 
-  /* ── Step progress dots ──────────────────────────── */
   .step-dots {
     position: absolute;
     right: 20px;
@@ -310,7 +336,6 @@
     transform: scale(1.5);
   }
 
-  /* Mobile: move dots to bottom-center as a horizontal row */
   @media (max-width: 600px) {
     .step-dots {
       right: auto;

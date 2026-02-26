@@ -1,10 +1,19 @@
 <script lang="ts">
+  // Raw SVG tree icons (broadleaved and coniferous)
+  import bro1 from '$lib/assets/icons_bro-1.svg?raw';
+  import bro2 from '$lib/assets/icons_bro-2.svg?raw';
+  import bro3 from '$lib/assets/icons_bro-3.svg?raw';
+  import con1 from '$lib/assets/icons_con-1.svg?raw';
+  import con2 from '$lib/assets/icons_con-2.svg?raw';
+  import con3 from '$lib/assets/icons_con-3.svg?raw';
+
   interface TooltipData {
     name: string;
-    density: number;   // 0–100 from Copernicus TCD; -1 = loading
+    density: number;    // 0–100 from Copernicus TCD; -1 = loading
+    leafType: number;   // 1=broadleaved, 2=coniferous, 0=unknown
     loading?: boolean;
-    x: number;         // clientX of click
-    y: number;         // clientY of click
+    x: number;
+    y: number;
   }
 
   interface Props {
@@ -15,7 +24,7 @@
   let { data = null, onclose }: Props = $props();
 
   const W = 240;
-  const H = 140;
+  const H = 160;
 
   let cx = $derived(
     data
@@ -31,8 +40,51 @@
     return 'No significant tree cover';
   }
 
-  // Gradient stop position: density% from left fills warm→cool color ramp
+  function densityCategory(d: number): string {
+    if (d === 0) return 'no';
+    if (d <= 10) return 'very sparse';
+    if (d <= 35) return 'sparse';
+    if (d <= 70) return 'moderate';
+    if (d <= 80) return 'dense';
+    return 'very dense';
+  }
+
+  function leafTypeLabel(leafType: number, density: number): string {
+    if (density === 0) return 'No tree cover.';
+    if (leafType === 1) return `A ${densityCategory(density)} canopy, mostly broadleaved trees.`;
+    if (leafType === 2) return `A ${densityCategory(density)} canopy, mostly coniferous trees.`;
+    return `A ${densityCategory(density)} canopy.`;
+  }
+
   let fillPct = $derived(data ? Math.max(1, data.density) : 0);
+
+  // ── Tree icon drawing ──────────────────────────────────────────────────────
+  // Pick a seeded-random icon from a pool based on tree type
+  function pickIcon(type: 'broadleaved' | 'coniferous', seed: number): string {
+    const pool = type === 'coniferous' ? [con1, con2, con3] : [bro1, bro2, bro3];
+    return pool[seed % 3];
+  }
+
+  // Build a list of tree types to draw based on density and leafType
+  function buildTreeRow(density: number, leafType: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
+    if (density === 0) return [];
+    const count = Math.max(1, Math.min(Math.round(density / 10), 10));
+    let types: Array<'broadleaved' | 'coniferous'>;
+    if (leafType === 2) {
+      types = Array(count).fill('coniferous');
+    } else if (leafType === 1) {
+      types = Array(count).fill('broadleaved');
+    } else {
+      // unknown type: mix
+      const half = Math.round(count / 2);
+      types = [...Array(half).fill('coniferous'), ...Array(count - half).fill('broadleaved')];
+    }
+    return types.map((type, i) => ({ type, seed: i }));
+  }
+
+  let treeRow = $derived(
+    data && !data.loading ? buildTreeRow(data.density, data.leafType) : []
+  );
 </script>
 
 {#if data}
@@ -50,23 +102,35 @@
 
       {#if data.loading}
         <div class="skeletons">
+          <div class="skeleton tree-skel"></div>
           <div class="skeleton wide"></div>
           <div class="skeleton narrow"></div>
         </div>
       {:else}
+        <!-- Tree icon row -->
+        {#if treeRow.length > 0}
+          <div class="tree-row" aria-hidden="true">
+            {#each treeRow as tree}
+              <span class="tree-icon">
+                {@html pickIcon(tree.type, tree.seed)}
+              </span>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- Natural language sentence -->
+        <p class="nl-sentence">{leafTypeLabel(data.leafType, data.density)}</p>
+
         <div class="stat-row">
           <span class="stat-lbl">Tree cover density</span>
           <span class="stat-val">{data.density}%</span>
         </div>
 
-        <!-- Filled bar: grows left-to-right, yellow → dark green -->
         <div class="bar-track">
           <div class="bar-fill" style="width:{fillPct}%"></div>
         </div>
 
-        <span class="density-label">{densityLabel(data.density)}</span>
-
-        <p class="source">Copernicus HRL TCD 2018 · © EEA</p>
+        <p class="source">Copernicus HRL TCD/DLT 2018 · © EEA</p>
       {/if}
     </div>
     <div class="arrow"></div>
@@ -122,7 +186,7 @@
     font-weight: 600;
     font-size: 16px;
     color: var(--color-text-dark);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     padding-right: 22px;
     line-height: 1.2;
   }
@@ -137,12 +201,47 @@
     background-size: 200% 100%;
     animation: shimmer 1.2s ease-in-out infinite;
   }
+  .skeleton.tree-skel { height: 32px; width: 80px; }
   .skeleton.wide    { width: 100%; }
   .skeleton.narrow  { width: 60%; }
 
   @keyframes shimmer {
     0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
+  }
+
+  /* ── Tree icon row ─────────────────── */
+  .tree-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    margin-bottom: 8px;
+    height: 32px;
+  }
+
+  .tree-icon {
+    display: flex;
+    align-items: flex-end;
+    flex: 1;
+    max-width: 24px;
+  }
+
+  /* Scale SVG to fill its container, and invert colors for dark background */
+  .tree-icon :global(svg) {
+    width: 100%;
+    height: 32px;
+    filter: invert(1);
+    overflow: visible;
+  }
+
+  /* ── NL sentence ───────────────────── */
+  .nl-sentence {
+    font-family: var(--font);
+    font-size: 12px;
+    font-style: italic;
+    color: var(--color-text-medium);
+    margin-bottom: 10px;
+    line-height: 1.4;
   }
 
   /* ── Data ──────────────────────────── */
@@ -181,15 +280,6 @@
     border-radius: 4px;
     background: linear-gradient(90deg, #ffec81, #4a9a20, #005f00);
     transition: width 0.4s ease;
-  }
-
-  .density-label {
-    display: block;
-    font-family: var(--font);
-    font-weight: 400;
-    font-size: 12px;
-    color: var(--color-text-medium);
-    margin-bottom: 10px;
   }
 
   .source {
