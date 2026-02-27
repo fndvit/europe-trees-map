@@ -42,50 +42,50 @@
   // ─── Story steps — matching Observable notebook @694 ────────────────────────
   const STEPS: ScrollStep[] = [
     {
-      text: "Europe's forests vary wildly. This map reveals where trees thrive —and where they don't— using high-resolution satellite data.",
+      text: "Europe's forests vary wildly. This map reveals where trees <strong>thrive</strong> —and where they <strong>don't</strong>— using high-resolution satellite data.",
       layer: "density",
       mapStep: 0,
       icon: "/assets/trees-icon.svg",
     },
     {
-      text: "Zooming into southern Spain, you can see where tree cover density drops. Dry climate, land use, and desertification mean many areas fall below 30% coverage —shown here in yellowish shades.",
+      text: "Zooming into southern Spain, you can see where <strong>tree cover density drops</strong>. Dry climate, land use, and desertification mean many areas fall below <strong>30% coverage</strong> —shown here in yellowish shades.",
       layer: "density",
       mapStep: 1,
     },
     {
-      text: "In contrast, Scandinavia is blanketed in darker green. Sweden and Finland have among the highest tree densities in Europe, with many regions over 80% coverage.",
+      text: "In contrast, Scandinavia is blanketed in darker green. Sweden and Finland have among the <strong>highest tree densities in Europe</strong>, with many regions over <strong>80% coverage</strong>.",
       layer: "density",
       mapStep: 2,
     },
     {
-      text: "But tree density is only one part of the story —and the data. We can also split trees by type —broadleaved and coniferous.",
+      text: "But tree density is only <strong>one part of the story</strong> —and the data. We can also split trees by type —<strong>broadleaved</strong> and <strong>coniferous</strong>.",
       layer: "forest-type",
       mapStep: 3,
     },
     {
-      text: "In the south — Portugal, Italy, the Balkans — broadleaved trees dominate: oaks, birches, beeches, and chestnuts, rooted in temperate and Mediterranean soils.",
+      text: "In the south — Portugal, Italy, the Balkans — <strong>broadleaved trees</strong> dominate: <strong>oaks, birches, beeches, and chestnuts</strong>, rooted in temperate and Mediterranean soils.",
       layer: "broadleaved",
       mapStep: 4,
     },
     {
-      text: "From Germany through the Baltic to the Nordic countries, the landscape is mainly coniferous forests: pines, spruces, cypresses, and firs, which are well-adapted to the colder, nutrient-poor soils.",
+      text: "From Germany through the Baltic to the Nordic countries, the landscape is mainly <strong>coniferous forests</strong>: <strong>pines, spruces, cypresses, and firs</strong>, which are well-adapted to the colder, nutrient-poor soils.",
       layer: "conifers",
       mapStep: 5,
     },
     {
-      text: "This view combines both tree cover density and the dominant leaf type. Darker shades of the same color mean denser coverage, while the hue still shows the forest type.",
+      text: "This view combines both <strong>tree cover density</strong> and the <strong>dominant leaf type</strong>. Darker shades of the same color mean <strong>denser coverage</strong>, while the hue still shows the forest type.",
       layer: "type-density",
       mapStep: 6,
     },
     {
-      text: "Lisbon's forests are mostly broadleaved, but the density is low. Contrast that with Ljubljana — surrounded by one of the highest forest densities in Europe.",
+      text: "Lisbon's forests are mostly broadleaved, but the density is <strong>low</strong>. Contrast that with <strong>Ljubljana</strong> — surrounded by one of the <strong>highest forest densities in Europe</strong>.",
       layer: "type-density",
       mapStep: 7,
       isSplit: true,
       splitSteps: [7, 8],
     },
     {
-      text: "Curious what grows near you? Use the map to explore forest patterns across Europe —by density, by type, and by place.",
+      text: "Curious what grows near you? Use the map to explore <strong>forest patterns across Europe</strong> —by density, by type, and by place.",
       layer: "type-density",
       mapStep: 9,
       icon: "/assets/trees-icon.svg",

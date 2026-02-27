@@ -25,7 +25,7 @@
   {#if icon}
     <img src={icon} alt="" class="card-icon" />
   {/if}
-  <p class="card-text">{text}</p>
+  <p class="card-text">{@html text}</p>
 </div>
 
 <style>
@@ -65,6 +65,10 @@
     font-size: 20px;
     line-height: 1.4;
     color: var(--color-text-dark);
+  }
+
+  .card-text :global(strong) {
+    font-weight: 600;
   }
 
   /* Mobile */
