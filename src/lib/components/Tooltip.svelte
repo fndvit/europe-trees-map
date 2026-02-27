@@ -190,7 +190,7 @@
           </div>
         </div>
 
-        <p class="source">Copernicus HRL 2018 · © EEA</p>
+        <p class="source">Tiles: Copernicus HRL 2023 · Identify: 2018 · © EEA</p>
       {/if}
     </div>
     <div class="arrow"></div>

@@ -10,10 +10,12 @@
     activeLayer?: Layer;
     onload?: () => void;
     onmapclick?: (data: { lng: number; lat: number }) => void;
+    onmapmousemove?: (data: { lng: number; lat: number; x: number; y: number }) => void;
+    onmapmouseleave?: () => void;
     scrollZoomEnabled?: boolean;
   }
 
-  let { step = 0, activeLayer = 'density', onload, onmapclick, scrollZoomEnabled = false }: Props = $props();
+  let { step = 0, activeLayer = 'density', onload, onmapclick, onmapmousemove, onmapmouseleave, scrollZoomEnabled = false }: Props = $props();
 
   let mapContainer: HTMLDivElement;
   let map: any;
@@ -35,7 +37,7 @@
     { center: [12.942, 53.300] as [number, number], zoom: 3.25 },   // 9 Explore
   ];
 
-  // ── WMS tile URL builder (GeoVille, Copernicus HRL 2021) ─────────────────────
+  // ── WMS tile URL builder (GeoVille, Copernicus HRL 2023) ─────────────────────
   // GeoServer supports SLD_BODY for custom per-request styling. This lets us:
   //   • Filter DLT by pixel value (1=broadleaved, 2=coniferous)
   //   • Apply the notebook colour palette directly at the server
@@ -52,7 +54,7 @@
   // DLT values: 1 = broadleaved, 2 = coniferous, everything else = background (transparent)
   const SLD_DLT_BRO =
     `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
-    `<NamedLayer><Name>HRL_TCF:DLT_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<NamedLayer><Name>HRL_TCF:DLT_S2023</Name><UserStyle><FeatureTypeStyle><Rule>` +
     `<RasterSymbolizer><ColorMap type="values">` +
     `<ColorMapEntry color="#c7b447" quantity="1" opacity="1.0"/>` +
     `</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>` +
@@ -60,7 +62,7 @@
 
   const SLD_DLT_CON =
     `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
-    `<NamedLayer><Name>HRL_TCF:DLT_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<NamedLayer><Name>HRL_TCF:DLT_S2023</Name><UserStyle><FeatureTypeStyle><Rule>` +
     `<RasterSymbolizer><ColorMap type="values">` +
     `<ColorMapEntry color="#07523f" quantity="2" opacity="1.0"/>` +
     `</ColorMap></RasterSymbolizer></Rule></FeatureTypeStyle></UserStyle></NamedLayer>` +
@@ -68,7 +70,7 @@
 
   const SLD_DLT_BOTH =
     `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
-    `<NamedLayer><Name>HRL_TCF:DLT_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<NamedLayer><Name>HRL_TCF:DLT_S2023</Name><UserStyle><FeatureTypeStyle><Rule>` +
     `<RasterSymbolizer><ColorMap type="values">` +
     `<ColorMapEntry color="#c7b447" quantity="1" opacity="1.0"/>` +
     `<ColorMapEntry color="#07523f" quantity="2" opacity="1.0"/>` +
@@ -79,7 +81,7 @@
   // Gradient: sparse (low %) → yellow #ffec81, dense (high %) → dark green #005f00
   const SLD_TCD_DENSITY =
     `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
-    `<NamedLayer><Name>HRL_TCF:TCD_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<NamedLayer><Name>HRL_TCF:TCD_S2023</Name><UserStyle><FeatureTypeStyle><Rule>` +
     `<RasterSymbolizer><ColorMap type="ramp">` +
     `<ColorMapEntry color="#005f00" quantity="0"   opacity="0.0"/>` +
     `<ColorMapEntry color="#ffec81" quantity="5"   opacity="0.85"/>` +
@@ -95,7 +97,7 @@
   // → darker/richer colour = denser forest
   const SLD_TCD_MASK =
     `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
-    `<NamedLayer><Name>HRL_TCF:TCD_S2021</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<NamedLayer><Name>HRL_TCF:TCD_S2023</Name><UserStyle><FeatureTypeStyle><Rule>` +
     `<RasterSymbolizer><ColorMap type="ramp">` +
     `<ColorMapEntry color="#ffffff" quantity="0"   opacity="0.0"/>` +
     `<ColorMapEntry color="#ffffff" quantity="1"   opacity="0.85"/>` +
@@ -106,11 +108,11 @@
 
   // Source/layer registry — DLT layers first, TCD mask last (renders on top of DLT)
   const FOREST_SOURCES: Record<string, string> = {
-    'dlt-bro':     wmsUrl('HRL_TCF:DLT_S2021', SLD_DLT_BRO),
-    'dlt-con':     wmsUrl('HRL_TCF:DLT_S2021', SLD_DLT_CON),
-    'dlt-both':    wmsUrl('HRL_TCF:DLT_S2021', SLD_DLT_BOTH),
-    'tcd-density': wmsUrl('HRL_TCF:TCD_S2021', SLD_TCD_DENSITY),
-    'tcd-mask':    wmsUrl('HRL_TCF:TCD_S2021', SLD_TCD_MASK),
+    'dlt-bro':     wmsUrl('HRL_TCF:DLT_S2023', SLD_DLT_BRO),
+    'dlt-con':     wmsUrl('HRL_TCF:DLT_S2023', SLD_DLT_CON),
+    'dlt-both':    wmsUrl('HRL_TCF:DLT_S2023', SLD_DLT_BOTH),
+    'tcd-density': wmsUrl('HRL_TCF:TCD_S2023', SLD_TCD_DENSITY),
+    'tcd-mask':    wmsUrl('HRL_TCF:TCD_S2023', SLD_TCD_MASK),
   };
 
   // Which layers to show for each app-level mode
@@ -186,8 +188,6 @@
       map.touchZoomRotate.disableRotation();
 
       map.addControl(new (mapboxgl as any).AttributionControl({ compact: true }), 'bottom-left');
-      map.getCanvas().style.cursor = 'crosshair';
-      map.on('mousemove', () => { map.getCanvas().style.cursor = 'crosshair'; });
 
       map.on('load', () => {
         // Add all forest sources + layers (initially hidden), inserted before 'water'
@@ -198,7 +198,7 @@
             tiles: [tileUrl],
             tileSize: 256,
             bounds: [-25, 34, 45, 72],
-            attribution: '© Copernicus Land Monitoring Service / GeoVille 2021'
+            attribution: '© Copernicus Land Monitoring Service / GeoVille 2023'
           });
           map.addLayer({
             id: `cop-${id}`,
@@ -233,6 +233,16 @@
       map.on('click', (e: any) => {
         onmapclick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
       });
+
+      map.on('mousemove', (e: any) => {
+        onmapmousemove?.({
+          lng: e.lngLat.lng,
+          lat: e.lngLat.lat,
+          x: e.originalEvent.clientX,
+          y: e.originalEvent.clientY,
+        });
+      });
+      map.on('mouseout', () => onmapmouseleave?.());
 
       const handleFlyTo = (e: Event) => {
         const { lat, lng } = (e as CustomEvent).detail;
