@@ -9,7 +9,8 @@
 <nav class="navbar" class:visible>
   <div class="nav-inner">
     <img src="/assets/badam_tree.png" alt="ViT" class="logo" />
-    <span class="nav-title">The Most Detailed Map of <b>Europe's Trees</b></span>
+    <span class="nav-title">The Most Detailed Map of <b>Europe's Trees</b></span
+    >
   </div>
 </nav>
 
@@ -20,13 +21,20 @@
     left: 0;
     right: 0;
     z-index: 20;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.50) 0%, rgba(255, 255, 255, 0.00) 100%);
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.2) 100%
+    );
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     padding: 10px;
+    padding-left: 35px;
     opacity: 0;
     transform: translateY(-8px);
-    transition: opacity 0.4s ease, transform 0.4s ease;
+    transition:
+      opacity 0.4s ease,
+      transform 0.4s ease;
     pointer-events: none;
   }
 
@@ -61,5 +69,12 @@
 
   .nav-title b {
     font-weight: 700;
+  }
+
+  /* ── Mobile ──────────────────────────── */
+  @media (max-width: 600px) {
+    .navbar {
+      padding-left: 0px;
+    }
   }
 </style>

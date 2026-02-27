@@ -121,6 +121,16 @@
     min-width: 380px;
   }
 
+  @media (max-width: 600px) {
+    .search-wrap.exploration {
+      left: 16px;
+      right: 16px;
+      transform: none;
+      min-width: 0;
+      top: 60px;
+    }
+  }
+
   .search-wrap.visible {
     opacity: 1;
     pointer-events: auto;

@@ -143,10 +143,20 @@
     applyLayer(activeLayer);
   });
 
-  // Enable/disable scroll zoom based on exploration mode
+  // Enable/disable map interactions based on exploration mode.
+  // During story steps, pan/touch are disabled so that touch-scroll drives the
+  // scrollytelling on mobile instead of panning the map.
   $effect(() => {
     if (!isLoaded || !map) return;
-    scrollZoomEnabled ? map.scrollZoom.enable() : map.scrollZoom.disable();
+    if (scrollZoomEnabled) {
+      map.scrollZoom.enable();
+      map.dragPan.enable();
+      map.touchZoomRotate.enable();
+    } else {
+      map.scrollZoom.disable();
+      map.dragPan.disable();
+      map.touchZoomRotate.disable();
+    }
   });
 
   onMount(() => {

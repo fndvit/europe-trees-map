@@ -27,6 +27,7 @@
     text: string;
     layer: Layer;
     mapStep: number;
+    icon?: string;
     isExploration?: boolean;
     isSplit?: boolean;
     splitSteps?: [number, number]; // [leftMapStep, rightMapStep]
@@ -37,7 +38,8 @@
     {
       text: "Europe's forests vary wildly. This map reveals where trees thrive —and where they don't— using high-resolution satellite data.",
       layer: 'density',
-      mapStep: 0
+      mapStep: 0,
+      icon: '/assets/trees-icon.svg'
     },
     {
       text: "Zooming into southern Spain, you can see where tree cover density drops. Dry climate, land use, and desertification mean many areas fall below 30% coverage —shown here in yellowish shades.",
@@ -80,6 +82,7 @@
       text: "Curious what grows near you? Use the map to explore forest patterns across Europe —by density, by type, and by place.",
       layer: 'type-density',
       mapStep: 9,
+      icon: '/assets/trees-icon.svg',
       isExploration: true
     }
   ];
@@ -315,7 +318,7 @@
     {#if currentStepData}
       <InfoCard
         text={currentStepData.text}
-        icon="/assets/trees-icon.svg"
+        icon={currentStepData.icon}
         visible={showUI && !explorationActive}
         progress={scrollProgress}
       />
@@ -430,16 +433,7 @@
 
   @media (max-width: 600px) {
     .step-dots {
-      right: auto;
-      top: auto;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      flex-direction: row;
-    }
-
-    .step-dots.visible {
-      opacity: 1;
+      display: none;
     }
   }
 
@@ -581,13 +575,15 @@
 
   @media (max-width: 600px) {
     .map-controls {
-      bottom: 244px;
+      bottom: 174px;
       right: 16px;
     }
 
     .back-to-top-btn {
-      top: 76px;
-      right: 16px;
+      top: auto;
+      right: auto;
+      bottom: 174px;
+      left: 16px;
     }
   }
 
