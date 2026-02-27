@@ -27,7 +27,8 @@
     The<br />
     Most Detailed<br />
     Map of<br />
-    Europe's Trees
+    <b>Europe's<br />
+    Trees</b>
   </h1>
 
   <!-- Bottom-right: tree + scroll CTA -->
@@ -70,7 +71,7 @@
     position: fixed;
     inset: 0;
     z-index: 100;
-    background-color: var(--color-bg-intro);
+    background-color: #6EAF40;
     overflow: hidden;
     transition: opacity 0.8s ease, visibility 0.8s ease;
   }

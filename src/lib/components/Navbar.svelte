@@ -8,8 +8,8 @@
 
 <nav class="navbar" class:visible>
   <div class="nav-inner">
-    <img src="/assets/vit-logo-color.svg" alt="ViT" class="logo" />
-    <span class="nav-title">The Most Detailed Map of Europe's Trees</span>
+    <img src="/assets/badam_tree.png" alt="ViT" class="logo" />
+    <span class="nav-title">The Most Detailed Map of <b>Europe's Trees</b></span>
   </div>
 </nav>
 
@@ -20,10 +20,10 @@
     left: 0;
     right: 0;
     z-index: 20;
-    background: linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
-    backdrop-filter: var(--blur-medium);
-    -webkit-backdrop-filter: var(--blur-medium);
-    padding: 10px 10px 30px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.50) 0%, rgba(255, 255, 255, 0.00) 100%);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    padding: 10px;
     opacity: 0;
     transform: translateY(-8px);
     transition: opacity 0.4s ease, transform 0.4s ease;
@@ -38,18 +38,18 @@
 
   .nav-inner {
     display: flex;
-    align-items: center;
-    gap: 16px;
+    align-items: flex-end;
+    gap: 5px;
   }
 
   .logo {
-    width: 72px;
-    height: 48px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
   }
 
   .nav-title {
-    font-family: var(--font);
+    font-family: var(--font-title);
     font-weight: 200;
     font-size: 18px;
     line-height: 1;
@@ -57,5 +57,9 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .nav-title b {
+    font-weight: 700;
   }
 </style>

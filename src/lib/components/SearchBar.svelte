@@ -105,12 +105,11 @@
 <style>
   .search-wrap {
     position: absolute;
-    top: 16px;
+    top: 72px;
     right: 20px;
     z-index: 20;
     opacity: 0;
-    transform: translateY(-4px);
-    transition: opacity 0.4s ease, transform 0.4s ease;
+    transition: opacity 0.4s ease;
     pointer-events: none;
     min-width: 220px;
   }
@@ -118,17 +117,12 @@
   .search-wrap.exploration {
     right: auto;
     left: 50%;
-    transform: translateX(-50%) translateY(-4px);
+    transform: translateX(-50%);
     min-width: 380px;
-  }
-
-  .search-wrap.exploration.visible {
-    transform: translateX(-50%) translateY(0);
   }
 
   .search-wrap.visible {
     opacity: 1;
-    transform: none;
     pointer-events: auto;
   }
 

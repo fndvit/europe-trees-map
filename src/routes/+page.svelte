@@ -29,6 +29,7 @@
     mapStep: number;
     isExploration?: boolean;
     isSplit?: boolean;
+    splitSteps?: [number, number]; // [leftMapStep, rightMapStep]
   }
 
   // ─── Story steps — matching Observable notebook @694 ────────────────────────
@@ -64,25 +65,16 @@
       mapStep: 5
     },
     {
-      text: "Here's a direct comparison. On the left, tree cover density alone. On the right, density combined with forest type — showing both how dense and what kind.",
-      layer: 'density',
-      mapStep: 6,
-      isSplit: true
-    },
-    {
       text: "This view combines both tree cover density and the dominant leaf type. Darker shades of the same color mean denser coverage, while the hue still shows the forest type.",
       layer: 'type-density',
       mapStep: 6
     },
     {
-      text: "Lisbon's forests are mostly broadleaved, but the density is low. Flying over to Slovenia…",
+      text: "Lisbon's forests are mostly broadleaved, but the density is low. Contrast that with Ljubljana — surrounded by one of the highest forest densities in Europe.",
       layer: 'type-density',
-      mapStep: 7
-    },
-    {
-      text: "…the forests surrounding Ljubljana show one of the highest forest densities in Europe.",
-      layer: 'type-density',
-      mapStep: 8
+      mapStep: 7,
+      isSplit: true,
+      splitSteps: [7, 8]
     },
     {
       text: "Curious what grows near you? Use the map to explore forest patterns across Europe —by density, by type, and by place.",
@@ -108,9 +100,11 @@
   let isExploration    = $derived(currentStep === STEPS.length - 1);
   let currentStepData  = $derived(currentStep >= 0 ? STEPS[currentStep] : null);
   let isSplit          = $derived(currentStepData?.isSplit === true);
+  let splitLeftStep    = $derived(currentStepData?.splitSteps?.[0] ?? mapStep);
+  let splitRightStep   = $derived(currentStepData?.splitSteps?.[1] ?? mapStep);
   let showUI           = $derived(!introVisible && currentStep >= 0);
   let storyLayers = $derived<Layer[]>(
-    isSplit ? ['density', 'type-density'] : [activeLayer]
+    isSplit ? ['type-density'] : [activeLayer]
   );
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -301,11 +295,11 @@
     <!-- Split stage (always mounted, fades in for split step) -->
     <div class="split-stage" class:visible={isSplit}>
       <div class="split-half">
-        <Map step={mapStep} activeLayer="density" />
+        <Map step={splitLeftStep} activeLayer="type-density" />
       </div>
       <div class="split-divider"></div>
       <div class="split-half">
-        <Map step={mapStep} activeLayer="type-density" />
+        <Map step={splitRightStep} activeLayer="type-density" />
       </div>
     </div>
 
@@ -344,8 +338,12 @@
     <div class="map-controls" class:visible={explorationActive && showUI} aria-label="Map controls">
       <button class="map-btn" onclick={zoomIn} title="Zoom in" aria-label="Zoom in">+</button>
       <button class="map-btn" onclick={zoomOut} title="Zoom out" aria-label="Zoom out">−</button>
-      <button class="map-btn map-btn-top" onclick={goToTop} title="Back to story" aria-label="Back to story">↑</button>
     </div>
+
+    <button class="back-to-top-btn" class:visible={explorationActive && showUI} onclick={goToTop} aria-label="Back to the top">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+      Back to the top
+    </button>
 
     <Tooltip data={tooltipData} onclose={() => (tooltipData = null)} />
 
@@ -368,15 +366,7 @@
 
   <footer class="site-footer" class:visible={explorationActive}>
     <a href="https://www.fundaciovit.org/" target="_blank" rel="noopener noreferrer" aria-label="Fundació ViT">
-      <img src="/assets/vit-logo-bw.svg" alt="ViT" width="72" />
-    </a>
-    <a href="https://www.instagram.com/fndvit/" target="_blank" rel="noopener noreferrer" aria-label="Follow us on Instagram" class="social-link">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-        <circle cx="12" cy="12" r="4"/>
-        <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none"/>
-      </svg>
-      <span>@fndvit</span>
+      <img src="/assets/vit-logo-bw.svg" alt="ViT" width="48" />
     </a>
   </footer>
 
@@ -547,14 +537,56 @@
     background: rgba(255, 255, 255, 0.85);
   }
 
-  .map-btn-top {
-    margin-top: 4px;
-    font-size: 16px;
+  .back-to-top-btn {
+    position: absolute;
+    height: 40px;
+    top: 76px;
+    right: 20px;
+    z-index: 20;
+    border: none;
+    border-radius: 8px;
+    background: var(--color-glass-heavy);
+    backdrop-filter: var(--blur-heavy);
+    -webkit-backdrop-filter: var(--blur-heavy);
+    box-shadow: var(--shadow-card);
+    color: var(--color-text-dark);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 7px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+  }
+
+  .back-to-top-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .back-to-top-btn:hover {
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: var(--shadow-card), 0 2px 8px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .back-to-top-btn:active {
+    transform: translateY(0);
+    transition-duration: 0.1s;
   }
 
   @media (max-width: 600px) {
     .map-controls {
       bottom: 244px;
+      right: 16px;
+    }
+
+    .back-to-top-btn {
+      top: 76px;
       right: 16px;
     }
   }
@@ -565,12 +597,12 @@
     left: 0;
     right: 0;
     z-index: 10;
-    background: var(--color-bg-intro, #0a1208);
+    background:  #6EAF40;;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 32px;
-    padding: 12px 20px;
+    padding: 2.5px;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     opacity: 0;
     pointer-events: none;
@@ -595,7 +627,7 @@
   }
 
   .site-footer img {
-    opacity: 0.5;
+    opacity: 1;
     transition: opacity 0.2s ease;
   }
 
@@ -604,6 +636,6 @@
   }
 
   .site-footer a:hover img {
-    opacity: 0.9;
+    opacity: 0.5;
   }
 </style>
