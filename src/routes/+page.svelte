@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fade } from "svelte/transition";
   import { browser } from "$app/environment";
   import Map from "$lib/components/Map.svelte";
   import Intro from "$lib/components/Intro.svelte";
@@ -107,6 +108,16 @@
   let cursorY = $state(0);
   let hoverTimer: ReturnType<typeof setTimeout> | null = null;
   let fetchController: AbortController | null = null;
+  let showGuide = $state(false);
+  let guideShown = false; // plain ref — only show once per session
+
+  $effect(() => {
+    if (explorationActive && !guideShown) {
+      guideShown = true;
+      showGuide = true;
+    }
+    if (!explorationActive) showGuide = false;
+  });
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
   let isExploration = $derived(currentStep === STEPS.length - 1);
@@ -162,17 +173,6 @@
     y: number,
     signal: AbortSignal,
   ): Promise<void> {
-    tooltipData = {
-      name: "…",
-      density: -1,
-      leafType: 0,
-      conifers: -1,
-      broadleaves: -1,
-      loading: true,
-      x,
-      y,
-    };
-
     const [mx, my] = to3857(lng, lat);
     const EEA_BASE =
       "https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic";
@@ -210,7 +210,7 @@
 
       // TCD: 0–100 are valid density %; special codes mean outside/sea/unclassified
       const rawTcd = parseInt(tcd.value ?? "-1", 10);
-      density = rawTcd >= 0 && rawTcd <= 100 ? rawTcd : 0;
+      density = rawTcd >= 0 && rawTcd <= 100 ? rawTcd : -1; // -1 = sea/outside coverage
 
       // DLT: 1=broadleaved, 2=coniferous; other values = no data
       const rawDlt = parseInt(dlt.value ?? "0", 10);
@@ -259,6 +259,11 @@
     } catch (err: any) {
       if (err?.name === "AbortError") return; // silently cancel stale requests
       // main fetches failed — show coordinate fallback with no stats
+    }
+
+    if (density === -1) {
+      tooltipData = null;
+      return;
     }
 
     tooltipData = {
@@ -312,7 +317,7 @@
         data.y,
         fetchController.signal,
       );
-    }, 500);
+    }, 100);
   }
 
   function handleMapMouseLeave() {
@@ -395,6 +400,7 @@
   <div
     class="map-stage"
     class:exploration={explorationActive}
+    class:has-tooltip={explorationActive && tooltipData != null}
     role="application"
     aria-label="Interactive forest map"
     onclick={(e) => {
@@ -436,6 +442,18 @@
       exploration={explorationActive}
     />
 
+    <button
+      class="back-to-top-btn"
+      class:visible={explorationActive && showUI}
+      onclick={goToTop}
+      aria-label="Back to story"
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="2,9 7,4 12,9"/>
+      </svg>
+      Top
+    </button>
+
     {#if currentStepData}
       <InfoCard
         text={currentStepData.text}
@@ -475,10 +493,47 @@
       >
     </div>
 
-    {#if explorationActive && cursorX > 0}
+    {#if showGuide}
+      <div class="explore-guide" transition:fade={{ duration: 300 }} aria-live="polite">
+        <button class="guide-close" onclick={() => (showGuide = false)} aria-label="Dismiss">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="1" y1="1" x2="11" y2="11"/>
+            <line x1="11" y1="1" x2="1" y2="11"/>
+          </svg>
+        </button>
+        <p class="guide-title">Explore the map</p>
+        <ul class="guide-tips">
+          <li>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <circle cx="8" cy="8" r="6"/>
+              <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+            <span>Hover anywhere to reveal forest data</span>
+          </li>
+          <li>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <circle cx="6.5" cy="6.5" r="4"/>
+              <line x1="9.5" y1="9.5" x2="13.5" y2="13.5"/>
+            </svg>
+            <span>Search for any place in Europe</span>
+          </li>
+          <li>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="2" y="3" width="12" height="2.5" rx="0.5"/>
+              <rect x="2" y="6.75" width="12" height="2.5" rx="0.5"/>
+              <rect x="2" y="10.5" width="12" height="2.5" rx="0.5"/>
+            </svg>
+            <span>Switch layers to explore by density or type</span>
+          </li>
+        </ul>
+        <p class="guide-hint">Close to start</p>
+      </div>
+    {/if}
+
+    {#if explorationActive && tooltipData != null}
       <div
         class="cursor-ring"
-        style="transform: translate({cursorX}px, {cursorY}px)"
+        style="transform: translate({tooltipData.x}px, {tooltipData.y}px)"
         aria-hidden="true"
       ></div>
     {/if}
@@ -535,6 +590,10 @@
 
   .map-stage.exploration,
   .map-stage.exploration :global(.mapboxgl-canvas) {
+    cursor: pointer !important;
+  }
+
+  .map-stage.has-tooltip :global(.mapboxgl-canvas) {
     cursor: none !important;
   }
 
@@ -745,13 +804,13 @@
 
   .cursor-ring {
     position: fixed;
-    top: -10px;
-    left: -10px;
-    width: 20px;
-    height: 20px;
+    top: -8px;
+    left: -8px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     border: 2px solid rgba(0, 0, 0, 0.65);
-    background: rgba(0, 0, 0, 0.15);
+    background: transparent;
     pointer-events: none;
     z-index: 100;
     transition: opacity 0.15s ease;
@@ -807,5 +866,83 @@
 
   .site-footer a:hover img {
     opacity: 0.5;
+  }
+
+  .explore-guide {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    background: rgba(10, 18, 8, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    padding: 24px 28px;
+    color: rgba(255, 255, 255, 0.92);
+    max-width: 300px;
+    cursor: default !important;
+  }
+
+  .guide-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: none;
+    color: rgba(255, 255, 255, 0.35);
+    cursor: pointer !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    padding: 0;
+    transition: color 0.15s ease;
+  }
+
+  .guide-close:hover {
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .guide-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 16px;
+    letter-spacing: 0.01em;
+  }
+
+  .guide-tips {
+    list-style: none;
+    margin: 0 0 16px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .guide-tips li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .guide-tips svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    opacity: 0.55;
+  }
+
+  .guide-hint {
+    margin: 0;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-align: center;
+    letter-spacing: 0.03em;
   }
 </style>

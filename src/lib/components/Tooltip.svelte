@@ -25,8 +25,8 @@
 
   let { data = null, onclose }: Props = $props();
 
-  const W = 280;
-  const H = 260; // approximate height for upward offset
+  const W = 320;
+  const H = 330; // approximate height for upward offset
 
   let cx = $derived(
     data
@@ -44,11 +44,28 @@
     return 'very dense';
   }
 
-  function leafTypeLabel(leafType: number, density: number): string {
+  function dominantType(
+    leafType: number,
+    conifers: number,
+    broadleaves: number
+  ): 'broadleaved' | 'coniferous' | 'mix' | null {
+    if (conifers >= 0 && broadleaves >= 0) {
+      if (Math.abs(conifers - broadleaves) < 100) return 'mix';
+      return conifers > broadleaves ? 'coniferous' : 'broadleaved';
+    }
+    if (leafType === 1) return 'broadleaved';
+    if (leafType === 2) return 'coniferous';
+    return null;
+  }
+
+  function nlSentence(density: number, leafType: number, conifers: number, broadleaves: number): string {
     if (density === 0) return 'No tree cover detected in this area.';
-    if (leafType === 1) return `A ${densityCategory(density)} canopy, mostly broadleaved trees.`;
-    if (leafType === 2) return `A ${densityCategory(density)} canopy, mostly coniferous trees.`;
-    return `A ${densityCategory(density)} canopy.`;
+    const type = dominantType(leafType, conifers, broadleaves);
+    const cat = densityCategory(density);
+    if (type === 'mix') return `A ${cat} canopy, a mix of coniferous and broadleaved trees.`;
+    if (type === 'coniferous') return `A ${cat} canopy, mostly coniferous trees.`;
+    if (type === 'broadleaved') return `A ${cat} canopy, mostly broadleaved trees.`;
+    return `A ${cat} canopy.`;
   }
 
   function pickIcon(type: 'broadleaved' | 'coniferous', seed: number): string {
@@ -56,23 +73,32 @@
     return pool[seed % 3];
   }
 
-  // Build a compact row of 1–3 tree icons based on density and leaf type
-  function buildTreeIcons(density: number, leafType: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
+  // Build a row of 1–10 tree icons based on density and leaf type
+  function buildTreeIcons(density: number, leafType: number, conifers: number, broadleaves: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
     if (density === 0) return [];
-    const count = Math.min(3, Math.max(1, Math.round(density / 35)));
+    const count = Math.min(10, Math.max(1, Math.round(density / 10)));
+    const type = dominantType(leafType, conifers, broadleaves);
     let types: Array<'broadleaved' | 'coniferous'>;
-    if (leafType === 2) {
+    if (type === 'coniferous') {
       types = Array(count).fill('coniferous');
-    } else if (leafType === 1) {
+    } else if (type === 'broadleaved') {
       types = Array(count).fill('broadleaved');
+    } else if (type === 'mix') {
+      const half = Math.ceil(count / 2);
+      types = [
+        ...Array(half).fill('coniferous'),
+        ...Array(count - half).fill('broadleaved'),
+      ] as Array<'broadleaved' | 'coniferous'>;
     } else {
-      types = count === 1 ? ['broadleaved'] : ['coniferous', 'broadleaved'];
+      types = Array(count).fill('broadleaved');
     }
-    return types.map((type, i) => ({ type, seed: i }));
+    return types.map((t, i) => ({ type: t, seed: i }));
   }
 
   let treeIcons = $derived(
-    data && !data.loading ? buildTreeIcons(data.density, data.leafType) : []
+    data && !data.loading
+      ? buildTreeIcons(data.density, data.leafType, data.conifers, data.broadleaves)
+      : []
   );
 
   // ── Bar position markers (0–100 = CSS left%) ──────────────────────────────
@@ -97,7 +123,7 @@
   );
 
   function formatHa(val: number): string {
-    if (val < 0) return '—';
+    if (val < 0) return 'Missing data';
     if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M ha`;
     if (val >= 1_000)     return `${Math.round(val / 1_000)}k ha`;
     return `${val} ha`;
@@ -107,13 +133,6 @@
 {#if data}
   <div class="tooltip" style="left:{cx}px; top:{cy}px;">
     <div class="bubble">
-
-      <button class="close-btn" onclick={onclose} aria-label="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-          fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <path d="M18 6 6 18M6 6l12 12"/>
-        </svg>
-      </button>
 
       <h3 class="place-name">{data.name}</h3>
       <hr class="divider" />
@@ -130,7 +149,7 @@
       {:else}
         <!-- Description + tree icons row (hidden on mobile) -->
         <div class="desc-row">
-          <p class="nl-sentence">{leafTypeLabel(data.leafType, data.density)}</p>
+          <p class="nl-sentence">{nlSentence(data.density, data.leafType, data.conifers, data.broadleaves)}</p>
           {#if treeIcons.length > 0}
             <div class="tree-icons" aria-hidden="true">
               {#each treeIcons as tree}
@@ -157,20 +176,20 @@
 
           <div class="stat-row">
             <span class="stat-lbl">Conifers</span>
-            <span class="stat-val">{formatHa(data.conifers)}</span>
+            <span class="stat-val" class:missing={data.conifers < 0}>{formatHa(data.conifers)}</span>
           </div>
-          <div class="bar-track">
+          <div class="bar-track" class:bar-missing={data.conifers < 0}>
             <div class="bar-gradient con-gradient"></div>
-            <div class="bar-marker" style="left:{conifersPos}%"></div>
+            {#if data.conifers >= 0}<div class="bar-marker" style="left:{conifersPos}%"></div>{/if}
           </div>
 
           <div class="stat-row">
             <span class="stat-lbl">Broadleaves</span>
-            <span class="stat-val">{formatHa(data.broadleaves)}</span>
+            <span class="stat-val" class:missing={data.broadleaves < 0}>{formatHa(data.broadleaves)}</span>
           </div>
-          <div class="bar-track">
+          <div class="bar-track" class:bar-missing={data.broadleaves < 0}>
             <div class="bar-gradient bro-gradient"></div>
-            <div class="bar-marker" style="left:{broadleavesPos}%"></div>
+            {#if data.broadleaves >= 0}<div class="bar-marker" style="left:{broadleavesPos}%"></div>{/if}
           </div>
         </div>
 
@@ -182,11 +201,11 @@
           </div>
           <div class="mobile-stat">
             <span class="stat-lbl">Conifers</span>
-            <span class="stat-val">{formatHa(data.conifers)}</span>
+            <span class="stat-val" class:missing={data.conifers < 0}>{formatHa(data.conifers)}</span>
           </div>
           <div class="mobile-stat">
             <span class="stat-lbl">Broadleaves</span>
-            <span class="stat-val">{formatHa(data.broadleaves)}</span>
+            <span class="stat-val" class:missing={data.broadleaves < 0}>{formatHa(data.broadleaves)}</span>
           </div>
         </div>
 
@@ -206,7 +225,7 @@
     flex-direction: column;
     align-items: center;
     pointer-events: auto;
-    animation: pop 0.18s ease;
+    animation: pop 0.08s ease;
   }
 
   @keyframes pop {
@@ -219,42 +238,25 @@
     backdrop-filter: var(--blur-light);
     -webkit-backdrop-filter: var(--blur-light);
     border-radius: 8px;
-    padding: 14px 14px 12px;
-    width: 280px;
+    padding: 16px 16px 14px;
+    width: 320px;
     box-shadow: var(--shadow-tooltip);
     position: relative;
   }
 
   @media (max-width: 600px) {
     .bubble {
-      width: 220px;
-      padding: 12px 12px 10px;
+      width: 260px;
+      padding: 14px 14px 12px;
     }
   }
-
-  .close-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--color-text-medium);
-    padding: 4px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    transition: background 0.15s;
-  }
-  .close-btn:hover { background: rgba(0,0,0,0.06); }
 
   .place-name {
     font-family: var(--font);
     font-weight: 600;
-    font-size: 16px;
+    font-size: 24px;
     color: var(--color-text-dark);
-    margin-bottom: 10px;
-    padding-right: 22px;
+    margin-bottom: 12px;
     line-height: 1.2;
   }
 
@@ -293,7 +295,7 @@
   .nl-sentence {
     flex: 1;
     font-family: var(--font);
-    font-size: 12px;
+    font-size: 14px;
     font-style: italic;
     color: var(--color-text-medium);
     line-height: 1.4;
@@ -302,25 +304,34 @@
 
   .tree-icons {
     flex-shrink: 0;
-    width: 64px;
-    height: 26px;
+    width: 110px;
+    height: 56px;
     display: flex;
     align-items: flex-end;
-    gap: 2px;
+    gap: 1px;
   }
 
   .tree-icon {
     display: flex;
     align-items: flex-end;
     flex: 1;
-    max-width: 22px;
+    max-width: 34px;
   }
 
   .tree-icon :global(svg) {
     width: 100%;
-    height: 26px;
-    filter: invert(1);
+    height: 52px;
     overflow: visible;
+  }
+
+  .stat-val.missing {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--color-text-light);
+  }
+
+  .bar-track.bar-missing .bar-gradient {
+    opacity: 0.2;
   }
 
   /* ── Stat rows ─────────────────────── */
@@ -334,14 +345,14 @@
   .stat-lbl {
     font-family: var(--font);
     font-weight: 300;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--color-text-dark);
   }
 
   .stat-val {
     font-family: var(--font);
     font-weight: 700;
-    font-size: 12px;
+    font-size: 14px;
     color: var(--color-text-dark);
   }
 
@@ -409,7 +420,7 @@
   /* ── Source credit ─────────────────── */
   .source {
     font-family: var(--font);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--color-text-light);
     line-height: 1.3;
     margin: 0;
