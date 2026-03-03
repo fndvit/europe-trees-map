@@ -8,7 +8,6 @@
   import InfoCard from "$lib/components/InfoCard.svelte";
   import SearchBar from "$lib/components/SearchBar.svelte";
   import LayerSelector from "$lib/components/LayerSelector.svelte";
-  import StoryLayerCard from "$lib/components/StoryLayerCard.svelte";
   import Tooltip from "$lib/components/Tooltip.svelte";
 
   type Layer =
@@ -126,8 +125,14 @@
   let splitLeftStep = $derived(currentStepData?.splitSteps?.[0] ?? mapStep);
   let splitRightStep = $derived(currentStepData?.splitSteps?.[1] ?? mapStep);
   let showUI = $derived(!introVisible && currentStep >= 0);
-  let storyLayers = $derived<Layer[]>(
-    isSplit ? ["type-density"] : [activeLayer],
+  // Legend builds up as layers are introduced, ending with the full legend
+  let cumulativeLayers = $derived<Layer[]>(
+    currentStep < 0  ? [] :
+    currentStep <= 2 ? ['density'] :
+    currentStep === 3 ? ['density', 'forest-type'] :
+    currentStep === 4 ? ['density', 'forest-type', 'broadleaved'] :
+    currentStep === 5 ? ['density', 'forest-type', 'broadleaved', 'conifers'] :
+                        ['density', 'forest-type', 'broadleaved', 'conifers', 'type-density']
   );
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
@@ -406,6 +411,7 @@
     onclick={(e) => {
       lastClickX = e.clientX;
       lastClickY = e.clientY;
+      if (showGuide) showGuide = false;
     }}
     onkeydown={() => {}}
   >
@@ -463,14 +469,12 @@
       />
     {/if}
 
-    <!-- Story card: compact, bottom right, informational -->
-    <StoryLayerCard visible={showUI && !isExploration} layers={storyLayers} />
-
-    <!-- Exploration bar: full width, all 5 layers, interactive -->
+    <!-- Legend: builds up during story, full interactive bar during exploration -->
     <LayerSelector
-      visible={explorationActive && showUI}
+      visible={showUI}
       {activeLayer}
-      onchange={handleLayerChange}
+      layers={cumulativeLayers}
+      onchange={explorationActive ? handleLayerChange : undefined}
     />
 
     <!-- Map controls: zoom in/out + go to top (visible in exploration) -->
@@ -494,13 +498,7 @@
     </div>
 
     {#if showGuide}
-      <div class="explore-guide" transition:fade={{ duration: 300 }} aria-live="polite">
-        <button class="guide-close" onclick={() => (showGuide = false)} aria-label="Dismiss">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <line x1="1" y1="1" x2="11" y2="11"/>
-            <line x1="11" y1="1" x2="1" y2="11"/>
-          </svg>
-        </button>
+      <div class="explore-guide" transition:fade={{ duration: 300 }} aria-live="polite" role="button" tabindex="0" onclick={() => showGuide = false} onkeydown={(e) => e.key === 'Enter' && (showGuide = false)}>
         <p class="guide-title">Explore the map</p>
         <ul class="guide-tips">
           <li>
@@ -526,7 +524,13 @@
             <span>Switch layers to explore by density or type</span>
           </li>
         </ul>
-        <p class="guide-hint">Close to start</p>
+        <p class="guide-hint">
+          Start exploring
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="2" y1="6" x2="10" y2="6"/>
+            <polyline points="7,3 10,6 7,9"/>
+          </svg>
+        </p>
       </div>
     {/if}
 
@@ -568,7 +572,7 @@
       rel="noopener noreferrer"
       aria-label="Fundació ViT"
     >
-      <img src="/assets/vit-logo-bw.svg" alt="ViT" width="48" />
+      <img src="/assets/vit-logo-bw.svg" alt="ViT" width="40" />
     </a>
   </footer>
 </div>
@@ -682,9 +686,9 @@
   }
 
   .split-divider {
-    width: 2px;
+    width: 5px;
     flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 1);
     z-index: 10;
   }
 
@@ -748,7 +752,7 @@
     z-index: 20;
     border: none;
     border-radius: 8px;
-    background: var(--color-glass-heavy);
+    background: white;
     backdrop-filter: var(--blur-heavy);
     -webkit-backdrop-filter: var(--blur-heavy);
     box-shadow: var(--shadow-card);
@@ -790,14 +794,14 @@
 
   @media (max-width: 600px) {
     .map-controls {
-      bottom: 174px;
+      bottom: 190px;
       right: 16px;
     }
 
     .back-to-top-btn {
       top: auto;
       right: auto;
-      bottom: 174px;
+      bottom: 190px;
       left: 16px;
     }
   }
@@ -874,37 +878,15 @@
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 50;
-    background: rgba(10, 18, 8, 0.82);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 12px;
+    box-shadow: 0 -2px 16px 0 rgba(0, 0, 0, 0.10);
     padding: 24px 28px;
-    color: rgba(255, 255, 255, 0.92);
+    color: var(--color-text-dark);
     max-width: 300px;
-    cursor: default !important;
-  }
-
-  .guide-close {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 24px;
-    height: 24px;
-    border: none;
-    background: none;
-    color: rgba(255, 255, 255, 0.35);
-    cursor: pointer !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    padding: 0;
-    transition: color 0.15s ease;
-  }
-
-  .guide-close:hover {
-    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
   }
 
   .guide-title {
@@ -929,7 +911,7 @@
     gap: 10px;
     font-size: 0.85rem;
     line-height: 1.4;
-    color: rgba(255, 255, 255, 0.75);
+    color: var(--color-text-dark);
   }
 
   .guide-tips svg {
@@ -940,9 +922,19 @@
 
   .guide-hint {
     margin: 0;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.35);
-    text-align: center;
-    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-text-dark);
+    padding: 5px 14px;
+    letter-spacing: 0.02em;
+    transition: background 0.15s ease;
+  }
+
+  .explore-guide:hover .guide-hint {
+    opacity: 0.75;
   }
 </style>

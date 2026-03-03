@@ -273,6 +273,9 @@
   :global(.mapboxgl-ctrl-bottom-left) {
     z-index: 5;
     pointer-events: auto;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
   }
 
   :global(.mapboxgl-ctrl-attrib) {
@@ -281,6 +284,15 @@
     background: rgba(255,255,255,0.5) !important;
     backdrop-filter: blur(4px);
     border-radius: 4px !important;
+  }
+
+  :global(.mapboxgl-ctrl-attrib) {
+    margin-top: 3px !important;
+  }
+
+
+  :global(.map-stage.exploration .mapboxgl-ctrl-bottom-left) {
+    margin-bottom: 30px;
   }
 
   :global(.mapboxgl-canvas) {

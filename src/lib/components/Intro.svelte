@@ -27,16 +27,20 @@
     />
   </a>
 
-  <!-- Main title -->
-  <h1 class="title">
-    The<br />
-    Most Detailed<br />
-    Map of<br />
-    <b
-      >Europe's<br />
-      Trees</b
-    >
-  </h1>
+  <!-- Main title + summary -->
+  <div class="title-block">
+    <h1 class="title">
+      The<br />
+      Most Detailed<br />
+      Map of<br />
+      <b
+        >Europe's<br />
+        Trees</b
+      >
+    </h1>
+    <!-- Short summary (desktop only) -->
+    <p class="summary">The first high-resolution database of trees across Europe — mapping species and density from satellite imagery.</p>
+  </div>
 
   <!-- Bottom-center: single scroll / loading indicator -->
   <div class="scroll-indicator" aria-hidden="true">
@@ -72,6 +76,7 @@
     transition:
       opacity 0.8s ease,
       visibility 0.8s ease;
+    --panel-left: 48px;
   }
 
   .intro.hidden {
@@ -84,7 +89,8 @@
   .vit-logo {
     position: absolute;
     top: 10px;
-    left: 10px;
+    left: var(--panel-left);
+    margin-left: -23px;
     width: 108px;
     height: auto;
   }
@@ -102,12 +108,18 @@
     opacity: 1;
   }
 
-  /* ── Title ───────────────────────────── */
-  .title {
+  /* ── Title block ─────────────────────── */
+  .title-block {
     position: absolute;
-    left: 48px;
+    left: var(--panel-left);
     top: 50%;
     transform: translateY(-52%);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .title {
     font-family: var(--font-title);
     font-variation-settings:
       "opsz" 18,
@@ -122,6 +134,24 @@
     font-variation-settings:
       "opsz" 12,
       "wght" 600;
+  }
+
+  /* ── Summary (desktop only) ─────────────────── */
+  .summary {
+    font-family: var(--font);
+    font-variation-settings:
+      "opsz" 18,
+      "wght" 300;
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 1);
+    max-width: 500px;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 600px) {
+    .summary {
+      display: none;
+    }
   }
 
   /* ── Bottom-center scroll / loading indicator ── */
@@ -205,17 +235,24 @@
 
   /* ── Mobile ──────────────────────────── */
   @media (max-width: 600px) {
-    .title {
-      left: 22px;
+    .intro {
+      --panel-left: 22px;
+    }
+
+    .title-block {
       top: 149px;
       padding-right: 22px;
       transform: none;
+    }
+
+    .title {
       line-height: 4.5rem;
       font-size: clamp(56px, 18vw, 90px);
     }
 
     .vit-logo {
       width: 90px;
+      margin-left: -19px;
     }
   }
 </style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fly } from 'svelte/transition';
 
   type Layer = 'density' | 'type-density' | 'broadleaved' | 'conifers' | 'forest-type';
 
@@ -7,49 +8,59 @@
     id: Layer;
     label: string;
     sublabel: string;
-    gradient: string;
+    image: string;
   }
 
   interface Props {
     visible?: boolean;
     activeLayer?: Layer;
+    layers?: Layer[];                      // when provided, only show these layers (story mode)
     onchange?: (layer: Layer) => void;
   }
 
-  let { visible = false, activeLayer = 'broadleaved', onchange }: Props = $props();
+  let { visible = false, activeLayer = 'broadleaved', layers = undefined, onchange }: Props = $props();
 
-  const LAYERS: LayerOption[] = [
+  // Order matches the story build-up: density → forest-type → broadleaved → conifers → type-density
+  // so the newly introduced (active) layer is always on the right
+  const ALL_LAYERS: LayerOption[] = [
     {
-      id: 'type-density',
-      label: 'Forest type + density',
-      sublabel: 'Two hues show forest type, lighter shades equal less density',
-      gradient: 'linear-gradient(90deg, rgba(199,180,71,0.3) 0%, #c7b447 45%, #07523f 100%)'
-    },
-    {
-      id: 'conifers',
-      label: 'Conifers',
-      sublabel: 'Known for their needle-like leaves: pines, spruces, cypresses ...',
-      gradient: 'linear-gradient(90deg, rgba(7,82,63,0.1) 0%, rgba(7,82,63,1) 100%)'
-    },
-    {
-      id: 'broadleaved',
-      label: 'Broadleaves',
-      sublabel: 'Also known as hardwoods: oaks, birch, beech ...',
-      gradient: 'linear-gradient(90deg, rgba(199,180,71,0.1) 0%, rgba(199,180,71,1) 100%)'
+      id: 'density',
+      label: 'Tree cover density',
+      sublabel: 'Sparse cover in yellow, denser in green',
+      image: '/assets/layer-density.png'
     },
     {
       id: 'forest-type',
       label: 'Forest type',
       sublabel: 'Two hues show forest type: broadleaved trees and conifers.',
-      gradient: 'linear-gradient(90deg, #c7b447 0%, #07523f 100%)'
+      image: '/assets/layer-forest-type.png'
     },
     {
-      id: 'density',
-      label: 'Tree cover density',
-      sublabel: 'Sparse cover in yellow, denser in green',
-      gradient: 'linear-gradient(90deg, #ffec81 0%, #005f00 100%)'
+      id: 'broadleaved',
+      label: 'Broadleaves',
+      sublabel: 'Also known as hardwoods: oaks, birch, beech ...',
+      image: '/assets/layer-broadleaved.png'
+    },
+    {
+      id: 'conifers',
+      label: 'Conifers',
+      sublabel: 'Known for their needle-like leaves: pines, spruces, cypresses ...',
+      image: '/assets/layer-conifers.png'
+    },
+    {
+      id: 'type-density',
+      label: 'Forest type + density',
+      sublabel: 'Two hues show forest type, lighter shades equal less density',
+      image: '/assets/layer-type-density..png'
     }
   ];
+
+  // Filter to provided layers (preserving ALL_LAYERS order), or show all
+  let visibleLayers = $derived(
+    layers != null ? ALL_LAYERS.filter(l => layers!.includes(l.id)) : ALL_LAYERS
+  );
+
+  let isInteractive = $derived(!!onchange);
 
   let trackEl: HTMLDivElement;
   let canScrollLeft = $state(false);
@@ -66,7 +77,16 @@
   }
 
   $effect(() => {
-    if (visible) requestAnimationFrame(updateScrollState);
+    visible; isInteractive; // re-run on visibility or mode change
+    requestAnimationFrame(updateScrollState);
+  });
+
+  // Scroll to the rightmost card whenever the layer list changes
+  $effect(() => {
+    visibleLayers;
+    requestAnimationFrame(() => {
+      if (trackEl) trackEl.scrollTo({ left: trackEl.scrollWidth, behavior: 'smooth' });
+    });
   });
 
   onMount(() => {
@@ -76,24 +96,27 @@
   });
 </script>
 
-<div class="selector-wrap" class:visible>
-  <button
-    class="chevron left"
-    class:hidden={!canScrollLeft}
-    onclick={() => scrollBy(-220)}
-    aria-label="Scroll left"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-  </button>
+<div class="selector-wrap" class:visible class:compact={!isInteractive}>
+    <button
+      class="chevron left"
+      class:hidden={!canScrollLeft}
+      onclick={() => scrollBy(-220)}
+      aria-label="Scroll left"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
 
   <div class="selector-track" bind:this={trackEl} onscroll={updateScrollState}>
-    {#each LAYERS as opt}
+    {#each visibleLayers as opt (opt.id)}
       <button
         class="layer-btn"
         class:active={activeLayer === opt.id}
+        class:dimmed={!isInteractive && activeLayer !== opt.id}
         onclick={() => onchange?.(opt.id)}
+        in:fly={{ x: 20, duration: 350 }}
+        out:fly={{ x: 20, duration: 200 }}
       >
-        <div class="layer-swatch" style="background: {opt.gradient}"></div>
+        <div class="layer-swatch" style="background-image: url({opt.image})"></div>
         <div class="layer-text">
           <span class="layer-label">{opt.label}</span>
           <span class="layer-sublabel">{opt.sublabel}</span>
@@ -102,20 +125,20 @@
     {/each}
   </div>
 
-  <button
-    class="chevron right"
-    class:hidden={!canScrollRight}
-    onclick={() => scrollBy(220)}
-    aria-label="Scroll right"
-  >
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
-  </button>
+    <button
+      class="chevron right"
+      class:hidden={!canScrollRight}
+      onclick={() => scrollBy(220)}
+      aria-label="Scroll right"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
 </div>
 
 <style>
   .selector-wrap {
     position: absolute;
-    bottom: 45px;
+    bottom: 68px;
     left: 50%;
     transform: translateX(-50%);
     width: calc(100% - 40px);
@@ -130,6 +153,14 @@
     opacity: 0;
     transition: opacity 0.5s ease;
     pointer-events: none;
+  }
+
+  /* Story mode: right-anchored, shrinks to fit content */
+  .selector-wrap.compact {
+    left: auto;
+    right: max(20px, calc((100% - 1100px) / 2));
+    transform: none;
+    width: fit-content;
   }
 
   .selector-wrap.visible {
@@ -199,21 +230,46 @@
     background: none;
     border: none;
     cursor: pointer;
-    
-    transition: background 0.2s;
+    transition: background 0.2s, opacity 0.3s ease;
     flex-shrink: 0;
     scroll-snap-align: start;
     position: relative;
-    border-right: 1px dashed rgba(160, 160, 160, 0.4);
   }
 
-  .layer-btn:last-child {
-    border-right: none;
+  .layer-btn::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 10%,
+      rgba(160, 160, 160, 0.4) 15%,
+      rgba(160, 160, 160, 0.4) 85%,
+      transparent 90%,
+      transparent 100%
+    );
+    background-size: 1px 100%;
+    background-repeat: repeat-y;
+    mask-image: repeating-linear-gradient(
+      to bottom,
+      black 0px,
+      black 4px,
+      transparent 4px,
+      transparent 8px
+    );
   }
 
-  .layer-btn.active,
-  .layer-btn:has(+ .layer-btn.active) {
-    border-right: none;
+  .layer-btn:last-child::after {
+    display: none;
+  }
+
+  .layer-btn.active::after,
+  .layer-btn:has(+ .layer-btn.active)::after {
+    display: none;
   }
 
   .layer-btn.active {
@@ -223,12 +279,20 @@
     margin: 0;
   }
 
+  /* Story mode: dim non-active layers */
+  .layer-btn.dimmed {
+    opacity: 0.45;
+    cursor: default;
+  }
+
   .layer-swatch {
     width: 120px;
     height: 90px;
     border-radius: 8px;
     flex-shrink: 0;
     box-shadow: 0px 1px 8px rgba(0,0,0,0.1);
+    background-size: cover;
+    background-position: center;
   }
 
   .layer-text {

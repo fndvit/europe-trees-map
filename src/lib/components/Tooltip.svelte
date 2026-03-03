@@ -25,15 +25,10 @@
 
   let { data = null, onclose }: Props = $props();
 
-  const W = 320;
-  const H = 330; // approximate height for upward offset
+  const H = 280; // approximate height for upward offset
 
-  let cx = $derived(
-    data
-      ? Math.min(Math.max(data.x, W / 2 + 12), (typeof window !== 'undefined' ? window.innerWidth : 1200) - W / 2 - 12)
-      : 0
-  );
-  let cy = $derived(data ? Math.max(data.y - H - 16, 60) : 0);
+  let cx = $derived(data ? data.x : 0);
+  let cy = $derived(data ? data.y - H - 16 : 0);
 
   function densityCategory(d: number): string {
     if (d === 0)   return 'no';
@@ -76,7 +71,7 @@
   // Build a row of 1–10 tree icons based on density and leaf type
   function buildTreeIcons(density: number, leafType: number, conifers: number, broadleaves: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
     if (density === 0) return [];
-    const count = Math.min(10, Math.max(1, Math.round(density / 10)));
+    const count = Math.min(3, Math.max(1, Math.round(density / 10)));
     const type = dominantType(leafType, conifers, broadleaves);
     let types: Array<'broadleaved' | 'coniferous'>;
     if (type === 'coniferous') {
@@ -287,8 +282,8 @@
   /* ── Description + icons row ────────── */
   .desc-row {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    align-items: flex-end;
+    justify-content: space-around;
     margin-bottom: 10px;
   }
 
@@ -298,14 +293,10 @@
     font-size: 14px;
     font-style: italic;
     color: var(--color-text-medium);
-    line-height: 1.4;
-    margin: 0;
   }
 
   .tree-icons {
     flex-shrink: 0;
-    width: 110px;
-    height: 56px;
     display: flex;
     align-items: flex-end;
     gap: 1px;
@@ -320,8 +311,12 @@
 
   .tree-icon :global(svg) {
     width: 100%;
-    height: 52px;
+    height: 35px;
     overflow: visible;
+  }
+
+  .tree-icon :global(.cls-1) {
+    fill: none;
   }
 
   .stat-val.missing {
