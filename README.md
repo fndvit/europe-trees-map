@@ -1,19 +1,27 @@
 # The Most Detailed Map of Europe's Trees
 
 An interactive scrollytelling web map showing Europe's forest cover density and tree types, built by **ViT** using real satellite data from the Copernicus Land Monitoring Service.
+<img width="1418" height="893" alt="image" src="https://github.com/user-attachments/assets/d2c4c298-ff17-4fbd-bc10-5970df11659f" />
+
 
 ---
 
 ## What this project is
 
-A data journalism / visual storytelling piece. The user scrolls through a narrative (4 steps) while a full-screen map automatically pans to relevant regions and switches data layers. The final step unlocks a free-exploration mode where the user can search locations and switch layers manually.
+A data journalism / visual storytelling piece. The user scrolls through a narrative while a full-screen map automatically pans to relevant regions and switches data layers. The final step unlocks a free-exploration mode where the user can search locations and switch layers manually.
 
 **Live experience flow:**
 1. **Intro screen** — full-screen title overlay with a loading/ready state indicator
 2. **Step 0** — Europe-wide view, tree cover density layer
-3. **Step 1** — Zooms into southern Spain to show sparse/dry coverage
-4. **Step 2** — Compares Lisbon (low density broadleaved) vs Ljubljana (high density)
-5. **Step 3 (Exploration)** — Free exploration: search any location, switch between 5 layer modes
+3. **Step 1** — Zooms into southern Spain to show dry coverage
+4. **Step 2** — Alternatively, zooms into Sweden to show sparse coverage
+5. **Step 3** - Europe-wide view again, switches to layer that shows tree type (broadleaved or coniferous).
+6. **Step 4** - Shows broadleaved territory.
+7. **Step 5** - Shows coniferous territory.
+8. **Step 6** - Introduces new layer that has both: tree cover density and tree type.
+9. **Step 7** — Compares Lisbon (low density broadleaved) vs Ljubljana (high density)
+10. **Step 8** — Zoom out, introduces exploration.
+11. **Exploration** — Free exploration: search any location, switch between 5 layer modes
 
 ---
 
@@ -59,6 +67,10 @@ The coordinate must be in **EPSG:3857** (Web Mercator). The app converts WGS84 �
 - Reverse lookup on map click (`/reverse` endpoint, zoom=10)
 
 No API keys are required for any of these services. Nominatim requires a valid `User-Agent` header, which is sent as `EuropeTreesMap/1.0`.
+
+### Data exploration and testing
+
+During development, the Copernicus services and identify endpoints were tested and explored in an [Observable notebook](https://observablehq.com/d/d11fa10c09d1dcd4).
 
 ---
 
