@@ -157,13 +157,11 @@
 
   /* Story mode: right-anchored, shrinks to fit content */
   .selector-wrap.compact {
-    left: auto;
-    right: max(20px, calc((100% - 1100px) / 2));
-    transform: none;
+
     width: fit-content;
   }
 
-  .selector-wrap.visible {
+.selector-wrap.visible {
     opacity: 1;
     pointer-events: auto;
   }

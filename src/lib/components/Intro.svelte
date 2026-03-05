@@ -39,7 +39,7 @@
       >
     </h1>
     <!-- Short summary (desktop only) -->
-    <p class="summary">The first high-resolution database of trees across Europe — mapping species and density from satellite imagery.</p>
+    <p class="summary">A continent-wide, high-resolution visualization of Europe’s trees made possible by open Copernicus satellite data.</p>
   </div>
 
   <!-- Bottom-center: single scroll / loading indicator -->

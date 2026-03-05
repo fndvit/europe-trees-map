@@ -69,30 +69,35 @@
   }
 
   // Build a row of 1–10 tree icons based on density and leaf type
-  function buildTreeIcons(density: number, leafType: number, conifers: number, broadleaves: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
+  function buildTreeIcons(density: number, conifers: number, broadleaves: number): Array<{ type: 'broadleaved' | 'coniferous'; seed: number }> {
     if (density === 0) return [];
-    const count = Math.min(3, Math.max(1, Math.round(density / 10)));
-    const type = dominantType(leafType, conifers, broadleaves);
+    const count = Math.max(1, Math.min(Math.round(density / 10), 7));
+    const type =
+      conifers === 0 && broadleaves === 0
+        ? 'none'
+        : Math.abs(conifers - broadleaves) < 100
+        ? 'mix'
+        : conifers > broadleaves
+        ? 'coniferous'
+        : 'broadleaved';
     let types: Array<'broadleaved' | 'coniferous'>;
-    if (type === 'coniferous') {
-      types = Array(count).fill('coniferous');
-    } else if (type === 'broadleaved') {
-      types = Array(count).fill('broadleaved');
-    } else if (type === 'mix') {
-      const half = Math.ceil(count / 2);
+    if (type === 'mix') {
+      const half = Math.round(count / 2);
       types = [
         ...Array(half).fill('coniferous'),
         ...Array(count - half).fill('broadleaved'),
       ] as Array<'broadleaved' | 'coniferous'>;
+    } else if (type === 'coniferous') {
+      types = Array(count).fill('coniferous');
     } else {
       types = Array(count).fill('broadleaved');
     }
-    return types.map((t, i) => ({ type: t, seed: i }));
+    return types.map((t) => ({ type: t, seed: Math.floor(Math.random() * 3) }));
   }
 
   let treeIcons = $derived(
     data && !data.loading
-      ? buildTreeIcons(data.density, data.leafType, data.conifers, data.broadleaves)
+      ? buildTreeIcons(data.density, data.conifers, data.broadleaves)
       : []
   );
 
@@ -296,17 +301,16 @@
   }
 
   .tree-icons {
-    flex-shrink: 0;
     display: flex;
     align-items: flex-end;
-    gap: 1px;
   }
 
   .tree-icon {
     display: flex;
     align-items: flex-end;
     flex: 1;
-    max-width: 34px;
+    max-width: 25px;
+    margin-right: -3px;
   }
 
   .tree-icon :global(svg) {
