@@ -321,4 +321,10 @@
     color: #aaa;
     opacity: 0.8;
   }
+
+  @media (max-width: 600px) {
+    .selector-wrap.compact {
+      width: calc(100% - 40px);
+    }
+  }
 </style>

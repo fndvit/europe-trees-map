@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, flushSync } from "svelte";
   import { fade } from "svelte/transition";
   import { browser } from "$app/environment";
   import Map from "$lib/components/Map.svelte";
@@ -283,19 +283,31 @@
     };
   }
 
-  async function handleMapClick(data: { lng: number; lat: number }) {
-    if (isExploration) return; // hover handles it in exploration mode
+  async function handleMapClick(data: { lng: number; lat: number; x: number; y: number }) {
     if (tooltipData) {
       tooltipData = null;
       return;
     } // toggle-close
+    // flushSync forces Svelte to paint the loading skeleton before the fetch starts
+    flushSync(() => {
+      tooltipData = {
+        name: '...',
+        density: 0,
+        leafType: 0,
+        conifers: -1,
+        broadleaves: -1,
+        loading: true,
+        x: data.x,
+        y: data.y,
+      };
+    });
     fetchController?.abort();
     fetchController = new AbortController();
     await fetchAtPosition(
       data.lng,
       data.lat,
-      lastClickX,
-      lastClickY,
+      data.x,
+      data.y,
       fetchController.signal,
     );
   }
@@ -424,6 +436,7 @@
         onmapclick={handleMapClick}
         onmapmousemove={handleMapMouseMove}
         onmapmouseleave={handleMapMouseLeave}
+        onmapmove={() => { tooltipData = null; fetchController?.abort(); }}
         scrollZoomEnabled={explorationActive}
       />
     </div>
@@ -936,5 +949,16 @@
 
   .explore-guide:hover .guide-hint {
     opacity: 0.75;
+  }
+
+  @media (max-width: 600px) {
+    .explore-guide {
+      left: 16px;
+      right: 16px;
+      top: auto;
+      bottom: 300px;
+      transform: none;
+      max-width: none;
+    }
   }
 </style>

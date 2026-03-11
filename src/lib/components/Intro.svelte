@@ -39,7 +39,9 @@
       >
     </h1>
     <!-- Short summary (desktop only) -->
-    <p class="summary">A continent-wide, high-resolution visualization of Europe’s trees made possible by open Copernicus satellite data.</p>
+    <p class="summary desktop-summary">A continent-wide, high-resolution visualization of Europe’s trees made possible by open <a href="https://land.copernicus.eu/en/products/high-resolution-layer-forests-and-tree-cover" target="_blank" rel="noopener noreferrer">Copernicus satellite data</a>.</p>
+    <!-- Short summary (mobile only) -->
+    <p class="summary mobile-summary"><a href="https://land.copernicus.eu/en/products/high-resolution-layer-forests-and-tree-cover" target="_blank" rel="noopener noreferrer">Copernicus satellite data</a></p>
   </div>
 
   <!-- Bottom-center: single scroll / loading indicator -->
@@ -136,7 +138,7 @@
       "wght" 600;
   }
 
-  /* ── Summary (desktop only) ─────────────────── */
+  /* ── Summary ─────────────────── */
   .summary {
     font-family: var(--font);
     font-variation-settings:
@@ -148,9 +150,22 @@
     line-height: 1.5;
   }
 
+  .summary a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  .mobile-summary {
+    display: none;
+  }
+
   @media (max-width: 600px) {
-    .summary {
+    .desktop-summary {
       display: none;
+    }
+    .mobile-summary {
+      display: block;
+      font-size: 0.9rem;
     }
   }
 

@@ -25,10 +25,8 @@
 
   let { data = null, onclose }: Props = $props();
 
-  const H = 280; // approximate height for upward offset
-
   let cx = $derived(data ? data.x : 0);
-  let cy = $derived(data ? data.y - H - 16 : 0);
+  let cy = $derived(data ? data.y : 0);
 
   function densityCategory(d: number): string {
     if (d === 0)   return 'no';
@@ -219,18 +217,21 @@
 <style>
   .tooltip {
     position: fixed;
-    transform: translateX(-50%);
+    /* Anchor left edge at cursor X, then shift left by 50% of own width */
+    /* translateY(-100%) moves the whole thing above the anchor point,   */
+    /* minus 16px gap between arrow tip and the cursor ring               */
+    transform: translateX(-50%) translateY(calc(-100% - 16px));
     z-index: 50;
     display: flex;
     flex-direction: column;
     align-items: center;
-    pointer-events: auto;
+    pointer-events: none;
     animation: pop 0.08s ease;
   }
 
   @keyframes pop {
-    from { opacity: 0; transform: translateX(-50%) scale(0.92) translateY(4px); }
-    to   { opacity: 1; transform: translateX(-50%) scale(1)    translateY(0);   }
+    from { opacity: 0; transform: translateX(-50%) translateY(calc(-100% - 16px)) scale(0.92); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(calc(-100% - 16px)) scale(1);    }
   }
 
   .bubble {
