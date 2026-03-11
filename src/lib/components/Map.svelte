@@ -9,13 +9,14 @@
     step?: number;
     activeLayer?: Layer;
     onload?: () => void;
-    onmapclick?: (data: { lng: number; lat: number }) => void;
+    onmapclick?: (data: { lng: number; lat: number; x: number; y: number }) => void;
     onmapmousemove?: (data: { lng: number; lat: number; x: number; y: number }) => void;
     onmapmouseleave?: () => void;
+    onmapmove?: () => void;
     scrollZoomEnabled?: boolean;
   }
 
-  let { step = 0, activeLayer = 'density', onload, onmapclick, onmapmousemove, onmapmouseleave, scrollZoomEnabled = false }: Props = $props();
+  let { step = 0, activeLayer = 'density', onload, onmapclick, onmapmousemove, onmapmouseleave, onmapmove, scrollZoomEnabled = false }: Props = $props();
 
   let mapContainer: HTMLDivElement;
   let map: any;
@@ -231,7 +232,12 @@
       });
 
       map.on('click', (e: any) => {
-        onmapclick?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+        onmapclick?.({
+          lng: e.lngLat.lng,
+          lat: e.lngLat.lat,
+          x: e.originalEvent.clientX,
+          y: e.originalEvent.clientY,
+        });
       });
 
       map.on('mousemove', (e: any) => {
@@ -243,6 +249,8 @@
         });
       });
       map.on('mouseout', () => onmapmouseleave?.());
+      map.on('dragstart',  () => onmapmove?.());
+      map.on('zoomstart',  () => onmapmove?.());
 
       const handleFlyTo = (e: Event) => {
         const { lat, lng } = (e as CustomEvent).detail;
