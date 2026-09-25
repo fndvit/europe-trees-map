@@ -15,7 +15,7 @@
     </span>
   </div>
   <a
-    href="https://github.com/ViT-Vit/europe-trees-map"
+    href="https://github.com/fndvit/europe-trees-map"
     target="_blank"
     rel="noopener noreferrer"
     class="github-link"
