@@ -21,6 +21,7 @@
   let mapContainer: HTMLDivElement;
   let map: any;
   let isLoaded = $state(false);
+  let forestReady = $state(false);
   let cleanupFlyTo: (() => void) | undefined;
   let cleanupZoom: (() => void) | undefined;
 
@@ -125,8 +126,105 @@
     'type-density': ['dlt-both', 'tcd-mask'],  // DLT base + white density mask on top
   };
 
+  // ── Fallback: EEA ImageServer (Copernicus HRL 2018) ──────────────────────────
+  // Used when GeoVille is unreachable. ArcGIS can't take SLD_BODY, so the server
+  // returns raw pixel values encoded as grey (value v → rgb(v,v,v), unlisted
+  // values transparent) and Mapbox's raster-color re-applies the palettes above.
+  const EEA = 'https://image.discomap.eea.europa.eu/arcgis/rest/services/GioLandPublic';
+
+  function eeaUrl(service: string, values: number[]): string {
+    const rule = {
+      rasterFunction: 'Colormap',
+      rasterFunctionArguments: { Colormap: values.map(v => [v, v, v, v]) },
+    };
+    return `${EEA}/${service}/ImageServer/exportImage?bbox={bbox-epsg-3857}` +
+      `&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true` +
+      `&interpolation=RSP_NearestNeighbor` +
+      `&renderingRule=${encodeURIComponent(JSON.stringify(rule))}&f=image`;
+  }
+
+  const EEA_SOURCES = {
+    dlt: eeaUrl('HRL_DominantLeafType2018', [1, 2]),
+    tcd: eeaUrl('HRL_TreeCoverDensity_2018', Array.from({ length: 100 }, (_, i) => i + 1)),
+  };
+
+  // raster-color ramps mirroring the SLDs above; raster-value = original pixel value
+  const NONE = 'rgba(0,0,0,0)';
+  const EEA_LAYERS: Record<string, { source: keyof typeof EEA_SOURCES; color: any[] }> = {
+    'dlt-bro':  { source: 'dlt', color: ['step', ['raster-value'], NONE, 0.5, '#c7b447', 1.5, NONE] },
+    'dlt-con':  { source: 'dlt', color: ['step', ['raster-value'], NONE, 1.5, '#07523f', 2.5, NONE] },
+    'dlt-both': { source: 'dlt', color: ['step', ['raster-value'], NONE, 0.5, '#c7b447', 1.5, '#07523f', 2.5, NONE] },
+    'tcd-density': { source: 'tcd', color: ['interpolate', ['linear'], ['raster-value'],
+      0, 'rgba(0,95,0,0)', 5, 'rgba(255,236,129,0.85)', 50, 'rgba(74,154,32,0.85)', 100, 'rgba(0,95,0,0.85)'] },
+    'tcd-mask': { source: 'tcd', color: ['interpolate', ['linear'], ['raster-value'],
+      0, 'rgba(255,255,255,0)', 1, 'rgba(255,255,255,0.85)', 50, 'rgba(255,255,255,0.4)', 100, 'rgba(255,255,255,0)'] },
+  };
+
+  // Resolves false if GeoVille doesn't answer a 1×1 GetMap within 5s
+  async function geovilleReachable(): Promise<boolean> {
+    try {
+      const res = await fetch(
+        `${GV}?service=WMS&version=1.3.0&request=GetMap&format=image/png&width=1&height=1` +
+        `&crs=EPSG:3857&bbox=1000000,6000000,1001000,6001000&layers=HRL_TCF:TCD_S2023`,
+        { signal: AbortSignal.timeout(5000) },
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // Layers are inserted before 'water' so coastlines and water bodies render on top
+  function addForestLayers(useGeoville: boolean) {
+    if (useGeoville) {
+      for (const [id, tileUrl] of Object.entries(FOREST_SOURCES)) {
+        map.addSource(`cop-${id}`, {
+          type: 'raster',
+          tiles: [tileUrl],
+          tileSize: 256,
+          bounds: [-25, 34, 45, 72],
+          attribution: '© Copernicus Land Monitoring Service / GeoVille 2023'
+        });
+        map.addLayer({
+          id: `cop-${id}`,
+          type: 'raster',
+          source: `cop-${id}`,
+          layout: { visibility: 'none' },
+          paint: { 'raster-opacity': 0.9 }
+        }, 'water');
+      }
+      return;
+    }
+
+    console.warn('GeoVille WMS unreachable — using EEA HRL 2018 tiles instead');
+    for (const [id, tileUrl] of Object.entries(EEA_SOURCES)) {
+      map.addSource(`eea-${id}`, {
+        type: 'raster',
+        tiles: [tileUrl],
+        tileSize: 256,
+        bounds: [-25, 34, 45, 72],
+        attribution: '© Copernicus Land Monitoring Service / EEA 2018'
+      });
+    }
+    for (const [id, { source, color }] of Object.entries(EEA_LAYERS)) {
+      map.addLayer({
+        id: `cop-${id}`,
+        type: 'raster',
+        source: `eea-${source}`,
+        layout: { visibility: 'none' },
+        paint: {
+          'raster-opacity': 0.9,
+          'raster-color': color,
+          'raster-color-mix': [255, 0, 0, 0],  // red channel (0–1) → pixel value 0–255
+          'raster-color-range': [0, 255],
+          'raster-resampling': 'nearest',      // blending would invent in-between classes
+        }
+      }, 'water');
+    }
+  }
+
   function applyLayer(layer: Layer) {
-    if (!map || !isLoaded) return;
+    if (!map || !forestReady) return;
     const visible = new Set(VISIBLE[layer]);
     for (const id of Object.keys(FOREST_SOURCES)) {
       map.setLayoutProperty(`cop-${id}`, 'visibility', visible.has(id) ? 'visible' : 'none');
@@ -142,7 +240,7 @@
 
   // Switch forest layer when `activeLayer` prop changes
   $effect(() => {
-    if (!isLoaded) return;
+    if (!forestReady) return;
     applyLayer(activeLayer);
   });
 
@@ -164,6 +262,9 @@
 
   onMount(() => {
     if (!browser) return;
+
+    // Start the probe now so it runs in parallel with the style download
+    const geovilleCheck = geovilleReachable();
 
     import('mapbox-gl').then(({ default: mapboxgl }) => {
       (mapboxgl as any).accessToken = PUBLIC_MAPBOX_TOKEN;
@@ -191,24 +292,13 @@
       map.addControl(new (mapboxgl as any).AttributionControl({ compact: true }), 'bottom-left');
 
       map.on('load', () => {
-        // Add all forest sources + layers (initially hidden), inserted before 'water'
-        // so coastlines and water bodies render on top of forest tiles
-        for (const [id, tileUrl] of Object.entries(FOREST_SOURCES)) {
-          map.addSource(`cop-${id}`, {
-            type: 'raster',
-            tiles: [tileUrl],
-            tileSize: 256,
-            bounds: [-25, 34, 45, 72],
-            attribution: '© Copernicus Land Monitoring Service / GeoVille 2023'
-          });
-          map.addLayer({
-            id: `cop-${id}`,
-            type: 'raster',
-            source: `cop-${id}`,
-            layout: { visibility: 'none' },
-            paint: { 'raster-opacity': 0.9 }
-          }, 'water');  // inserts under water/coastlines
-        }
+        // Add forest layers (initially hidden) once we know which server to use.
+        // The rest of the map doesn't wait for this.
+        geovilleCheck.then((ok) => {
+          if (!map) return;
+          addForestLayers(ok);
+          forestReady = true;
+        });
 
         // Suppress expected WMS tile errors (out-of-bounds, server hiccups)
         map.on('error', (e) => {
@@ -216,9 +306,7 @@
           console.warn('Map error:', e.error);
         });
 
-        // Set isLoaded BEFORE applyLayer so the guard inside it passes
         isLoaded = true;
-        applyLayer(activeLayer);
         onload?.();
 
         const handleZoomIn  = () => map?.zoomIn({ duration: 300 });
@@ -265,6 +353,7 @@
     cleanupFlyTo?.();
     cleanupZoom?.();
     map?.remove();
+    map = undefined;
   });
 </script>
 
